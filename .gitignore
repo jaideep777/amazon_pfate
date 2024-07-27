@@ -1,0 +1,9 @@
+*.csv
+*.txt
+*saved_config*
+*saved_state*
+.Rhistory
+*.out
+*.png
+*.pdf
+.Rproj*
