@@ -1,7 +1,10 @@
+rm(list=ls())
 library(PlantFATE)
 library(tidyverse)
 
 print(getwd())
+
+source(here::here("Rscripts/definitions.R"))
 
 summarize_outputs = function(input_dir, expt_dir, output_dir, ymin=14000, ymax=14500){
   wd_back = getwd()
@@ -113,7 +116,9 @@ fitness_wd = function(wd, zp, co, co2, pfile,
 wd = seq(350, 900, length.out=20)
 
 #### 1 species plot from real simulation ####
-
+regenerate_data = F
+## ------------
+if (regenerate_data){
 fitness_amb = wd %>% purrr::map_dbl(.f = fitness_wd, 
                                 pfile = dat_amb$pfile,
                                 zp=dat_amb$env$z, co=dat_amb$env$co, 
@@ -146,6 +151,10 @@ df_real = cbind(wd,
                 fitness_eCeEeT) %>% as.data.frame()
 
 df_real %>% write_csv(here::here("summarized_outputs/fitness_landscape_hist_ele_co2_1314.2.csv"))
+}
+## -----------
+
+df_real = read_csv(here::here("summarized_outputs/fitness_landscape_hist_ele_co2_1314.2.csv"))
 
 wd_opt = function(wd, fitness){
   fitness = fitness/max(fitness)
@@ -153,23 +162,26 @@ wd_opt = function(wd, fitness){
   sum(wd*fitness)/sum(fitness)
 }
 
-p_real = df_real %>% 
+p_real = 
+  df_real %>% 
   pivot_longer(-wd) %>% 
   # pull(name) %>% unique()
-  mutate(name = factor(name, levels = unique(name), labels = c("aC+aE+aT", "eC+aE+aT", "eC+eE+aT", "eC+eE+eT") )) %>% 
+  mutate(name = factor(name, levels = unique(name), labels = c("aC+aI+aT", "eC+aI+aT", "eC+eI+aT", "eC+eI+eT") )) %>% 
   group_by(name) %>% 
   mutate(value = value/max(value),
          mean = wd_opt(wd, value)) %>% 
   ggplot(aes(x=wd, y=value))+
   geom_line(aes(group=name, color=name))+
-  labs(x=labels["WD"]$WD, y="Fitness", col="Scenario")+
-  scale_color_manual(values = c(`aC+aE+aT`="lightgreen",
-                                `eC+aE+aT`="greenyellow",
-                                `eC+eE+aT`="darkgreen",
-                                `eC+eE+eT`="darkcyan"))+
+  labs(x=str_replace_all(labels3["WD"], "<br>", " "), y="Fitness", col="Scenario")+
+  scale_color_manual(values = c(`aC+aI+aT`=col_amb,
+                                `eC+aI+aT`="aquamarine4",
+                                `eC+eI+aT`="plum",
+                                `eC+eI+eT`=col_ele))+
   geom_vline(aes(xintercept = mean, col=name), linewidth=0.3)+
-  theme_bw()+
-  amz_theme()
+  geom_label(data = tibble(label="a"),
+             aes(x=-Inf, y=Inf, label=label), inherit.aes = F, hjust=0, vjust=1, label.size = 0, size = 4.5) +
+  amz_theme()+
+  theme()
 
 #### Plot with 20 species ####
 
@@ -184,7 +196,8 @@ traits_wd = list(i=1:20, wd=wd) %>%
   select(-i) %>% 
   mutate(pfile = here::here("config_files/p_amz_mip_final.ini"))
 
-
+## -----------
+if (regenerate_data){
 fitness_aCaE = traits_wd %>% purrr::pmap(fitness_wd, zp=zp_amb$env$z, co=zp_amb$env$co, co2=368.9) %>% unlist()
 fitness_eCaE = traits_wd %>% purrr::pmap(fitness_wd, zp=zp_amb$env$z, co=zp_amb$env$co, co2=1314.2) %>% unlist()
 fitness_eCeE = traits_wd %>% purrr::pmap(fitness_wd, zp=zp_ele$env$z, co=zp_ele$env$co, co2=1314.2) %>% unlist()
@@ -195,10 +208,12 @@ traits_wd  %>%
     fitness_eCaE = fitness_eCaE,
     fitness_eCeE = fitness_eCeE
   ) %>% write.csv(here::here("summarized_outputs/fitness_landscape_20spp.csv"), row.names = F)
+}
+## -------------
 
 traits_fitness = read.csv(here::here("summarized_outputs/fitness_landscape_20spp.csv"))
 
-p_20spp = traits_fitness %>% 
+p_20spp = traits_fitness %>%
   group_by(lma, hmat, p50) %>% 
   summarize(
     wd_opt_aCaE = wd_opt(wd, fitness_aCaE),
@@ -208,19 +223,22 @@ p_20spp = traits_fitness %>%
   ungroup() %>% 
   select(starts_with("wd_opt")) %>% 
   pivot_longer(everything()) %>% 
-  mutate(name = factor(name, levels = unique(name), labels = c("aC+aE+aT", "eC+aE+aT", "eC+eE+aT") )) %>% 
+  mutate(name = factor(name, levels = unique(name), labels = c("aC+aI+aT", "eC+aI+aT", "eC+eI+aT") )) %>% 
   ggplot()+
   geom_boxplot(aes(x=value, y=name, fill=name))+
-  scale_fill_manual(values = c(`aC+aE+aT`="lightgreen",
-                               `eC+aE+aT`="greenyellow",
-                               `eC+eE+aT`="darkgreen",
-                               `eC+eE+eT`="darkcyan"))+
+  scale_fill_manual(values = c( `aC+aI+aT`=col_amb,
+                                `eC+aI+aT`="aquamarine4",
+                                `eC+eI+aT`="plum",
+                                `eC+eI+eT`=col_ele))+
   scale_y_discrete(limits=rev)+
-  xlab(exprlabel("Optimal", "wood density", "(kg m"^"-3"*")"))+
+  geom_label(data = tibble(label="b"),
+             aes(x=-Inf, y=Inf, label=label), inherit.aes = F, hjust=0, vjust=1, label.size = 0, size = 4.5) +
+  xlab(paste("Optimal", labels2["WD"]) %>% str_replace_all("<br>", " ") %>% str_to_sentence())+
   labs(y="Scenario", fill="Scenario")+
   theme_bw()+
   amz_theme()
 
+library(patchwork)
 cairo_pdf(here::here("figures/optimal_wd.pdf"), width = 4.6, height = 4.6)
 print(
 p_real/p_20spp + plot_layout(guides="collect")

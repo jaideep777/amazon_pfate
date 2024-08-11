@@ -70,12 +70,13 @@ print(
   df_cohorts %>%
     mutate(YEAR = as.integer(YEAR)) %>%
     filter(YEAR %in% c(2000, 20000)) %>%
-    ggplot(aes(x=height, y=mort*365.2425, colour = factor(YEAR), group=YEAR))+
+    mutate(CO2 = factor(ifelse(YEAR == 2000, yes=368.9, no=1314.2))) %>% 
+    ggplot(aes(x=height, y=mort*365.2425, colour = CO2, group=CO2))+
     geom_line()+
-    theme_bw()+
-    amz_theme()+
-    geom_vline(xintercept = zp_amb$env$z, col="red", alpha=0.2)+
-    geom_vline(xintercept = zp_ele$env$z, col="cyan3", alpha=0.2)+
-    labs(y=exprlabel("Mortality rate", "(Yr"^"-1"*")"), x="Height (m)", col="Year")
+    geom_vline(xintercept = zp_amb$env$z, col=col_amb, alpha=0.2)+
+    geom_vline(xintercept = zp_ele$env$z, col=col_ele, alpha=0.2)+
+    scale_color_manual(values=c(`368.9`=col_amb, `1314.2`=col_ele))+
+    labs(y="Mortality rate<br>(Yr<sup>&minus;1</sup>)", x="Height (m)", col="CO2")+
+    amz_theme()    
 )
 dev.off()

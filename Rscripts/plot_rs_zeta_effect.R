@@ -1,3 +1,4 @@
+rm(list=ls())
 library(tidyverse)
 
 input_dir = here::here("input_data/")
@@ -61,27 +62,36 @@ list[[length(list)+1]] = read_supp( here::here("pfate_output_co2scan/"),
                     "AmzMIP_HIST_614.2_evol_20ky_4",
                     1900, 2000)
 
-cairo_pdf(here::here("figures/eco2_rs_zeta.pdf"), width = 6.5, height = 4.5)
-print(
-list %>% plyr::join_all(by="name") %>% 
+df = list %>% plyr::join_all(by="name") %>% 
   setNames(c("name", "eco2", "eco2.zeta", "eco2.rs", "aco2")) %>%
+  filter(name %in% c("GPP", "NPP", "RAU", "LAI", "AGB", "CFR", "BA", "WD", "P50X", "HMAT", "z2", "z3")) %>% 
   mutate(diff_co2 = (eco2-aco2)/aco2*100,
          diff_rs = (eco2.rs-aco2)/aco2*100,
-         diff_zeta = (eco2.zeta-aco2)/aco2*100) %>%
+         diff_zeta = (eco2.zeta-aco2)/aco2*100)
+
+df %>% write_csv(here::here("summarized_outputs/rs_zeta_comparison.csv"))
+
+cairo_pdf(here::here("figures/eco2_rs_zeta.pdf"), width = 6.5, height = 4.5)
+print(
+df %>%
+  mutate(name = factor(name, levels=unique(name), labels=paste0("**",letters[1:length(unique(name))], "**. ", labels_nounit[unique(name)]))) %>%
   select(name, diff_co2, diff_rs, diff_zeta) %>%
   pivot_longer(-name, names_to = "scenario") %>% 
-  filter(name %in% c("GPP", "NPP", "RAU", "LAI", "AGB", "CFR", "BA", "WD", "P50X", "HMAT", "z2", "z3")) %>% 
   ggplot()+
   geom_col(aes(y=value, x=scenario, fill=scenario))+
   facet_wrap(~name, scales="free_y", axes = "margins")+
   labs(y="Percent change", x="Scenario")+
-  scale_x_discrete(labels = c(exprlabel("+CO"[2],""),
-                              exprlabel("+CO"[2],"+R"[s]), 
-                              exprlabel("+CO"[2],"+"*zeta)
-                              ))+
+  scale_x_discrete(labels = c("+CO<sub>2</sub>",
+                              "+CO<sub>2</sub>,<br>+Rs", 
+                              "+CO<sub>2</sub>,<br>+&zeta;"))+
+  scale_fill_manual(values = c(
+    diff_co2  = col_ele, 
+    diff_rs   = "plum", 
+    diff_zeta = "aquamarine4"
+  ))+
   guides(fill="none")+
-  theme_bw()+
-  amz_theme()
+  amz_theme()+
+  theme(axis.text.x = ggtext::element_markdown(lineheight=1.0))
 )
 dev.off()
 

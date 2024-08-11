@@ -7,3 +7,4 @@
 *.png
 *.pdf
 .Rproj*
+.Rproj.user
