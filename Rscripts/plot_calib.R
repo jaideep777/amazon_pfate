@@ -2,100 +2,105 @@ rm(list=ls())
 library(tidyverse)
 
 input_dir = here::here("input_data/")
+
+## Final runs (manuscript)
 output_dir = here::here("pfate_output_co2scan/")
+expt_dir = "AmzMIP_HIST_614.2_evol_20ky_4"
 
 ## Final runs (MIP)
-expt_dir = "AmzMIP_HIST_614.2_evol_20ky_4"
+output_dir = "~/Desktop/AmzMIP/pfate_output_mip/"
+expt_dir = "AmzMIP_HIST_AMB_evol_20ky_c2_rs0.04"
 
 source("~/codes/Plant-FATE/R/process_outputs.R")
 source(here::here("Rscripts/definitions.R"))
 
 traits_obs = read.csv(file = paste0(input_dir, "/Amz_trait_orig.csv"))
 
-calib_fluxes = 
+calib_fluxes =
   read.csv(text = gsub(pattern = " ", replacement="",
-                       "name, mean, min, max, type 
-      GPP,  NA, 3,  3.5, fluxes     
-      NPP, 1.31, NA, NA, fluxes    
-      AGB, NA, 16.9, 20.7, structure  
-      GS, 0.16, NA, NA, fluxes     
-      LAI, NA, 5.3, 6.2, structure    
-      CFR, NA, 0.48, 0.66, structure  
+      "name, mean, min, max, type
+      GPP,  NA, 3,  3.5, fluxes
+      NPP, 1.31, NA, NA, fluxes
+      AGB, NA, 16.9, 20.7, structure
+      GS, 0.16, NA, NA, fluxes
+      LAI, NA, 5.3, 6.2, structure
+      CFR, NA, 0.48, 0.66, structure
       VCMAX, NA, 39.3, 45.7, fluxes"),
-           header=T, sep=",", as.is = F) %>% 
+           header=T, sep=",", as.is = F) %>%
   as_tibble()
 
-calib_ba = 
-  traits_obs %>% 
-  select(Species, Total.BasalArea_2017.cm2., Height_Max.m., meanWoodDensity..g.cm3., Leaf.LMA..g.m2., P50..Mpa.) %>% 
-  mutate(BA.m2.ha = Total.BasalArea_2017.cm2.*1e-4*1e4/(8*pi*(30/2)^2)) %>% 
+calib_ba =
+  traits_obs %>%
+  select(Species, Total.BasalArea_2017.cm2., Height_Max.m., meanWoodDensity..g.cm3., Leaf.LMA..g.m2., P50..Mpa.) %>%
+  mutate(BA.m2.ha = Total.BasalArea_2017.cm2.*1e-4*1e4/(8*pi*(30/2)^2)) %>%
   summarize(
     BA = sum(BA.m2.ha, na.rm=T),
-  ) %>% 
-  pivot_longer(everything(), values_to = "mean") %>% 
+  ) %>%
+  pivot_longer(everything(), values_to = "mean") %>%
   mutate(type="structure")
 
 
 calib = calib_fluxes %>% bind_rows(calib_ba)
 
 
-l1 = pf_read_outputs(output_dir, expt_dir) %>% 
+l1 = pf_read_outputs(output_dir, expt_dir) %>%
        pf_slice_time(1900, 2100)
 
-pred_ts = l1$dat_d %>% 
-  select(YEAR, GPP, NPP, GS, VCMAX) %>% 
+pred_ts = l1$dat_d %>%
+  select(YEAR, GPP, NPP, GS, VCMAX) %>%
   filter(YEAR >= 1999 & YEAR <= 2020) %>%
   mutate(
     GPP = GPP*365.2425,
     NPP = NPP*365.2425,
-  ) %>% 
-  pivot_longer(-YEAR) %>% 
+  ) %>%
+  pivot_longer(-YEAR) %>%
   bind_rows(
-    l1$dat3 %>% 
-      select(YEAR, CL, CW, CCR, CFR, BA, LAI, TB) %>% 
+    l1$dat3 %>%
+      select(YEAR, CL, CW, CCR, CFR, BA, LAI, TB) %>%
       filter(YEAR >= 1999 & YEAR <= 2020) %>%
       mutate(
-        AGB = CL+CW, 
+        AGB = CL+CW,
         BGB = CCR+CFR,
-        BA = BA*1e4) %>% 
+        BA = BA*1e4) %>%
       pivot_longer(-YEAR)
-  ) %>%  
+  ) %>%
   bind_rows(
-    l1$traits %>% 
+    l1$traits %>%
       filter(YEAR >= 1999 & YEAR <= 2020) %>%
-      filter(!grepl("probe", SPP)) %>% 
-      select(YEAR, LMA, WD, HMAT, P50X) %>% 
+      filter(!grepl("probe", SPP)) %>%
+      select(YEAR, LMA, WD, HMAT, P50X) %>%
       pivot_longer(-YEAR)
-  ) %>% 
-  bind_rows(data.frame(YEAR=NA, name="BA", value=20)) %>% 
-  bind_rows(data.frame(YEAR=NA, name="AGB", value=10)) %>% 
-  inner_join(calib) %>% 
+  ) %>%
+  bind_rows(data.frame(YEAR=NA, name="BA", value=20)) %>%
+  bind_rows(data.frame(YEAR=NA, name="AGB", value=10)) %>%
+  inner_join(calib) %>%
   mutate(name = factor(name, levels = unique(name), labels = labels2[unique(name)]))
-  
-pred = pred_ts %>% 
-  filter(YEAR >= 2000 & YEAR <= 2015) %>% 
-  filter(!is.na(YEAR)) %>% 
-  group_by(name, type) %>% 
-  summarize(across(everything(), ~mean(.))) %>% 
+
+pred = pred_ts %>%
+  filter(YEAR >= 2000 & YEAR <= 2015) %>%
+  filter(!is.na(YEAR)) %>%
+  group_by(name, type) %>%
+  summarize(across(everything(), ~mean(.))) %>%
   ungroup()
 
 calib_yr = 2007
 
 
 
-cairo_pdf(file=here::here("figures/calib_fluxes_structure.pdf"), width = 7, height = 3.5)
+# cairo_pdf(file=here::here("figures/calib_fluxes_structure.pdf"), width = 7, height = 3.5)
+cairo_pdf(file=here::here("figures/calib_fluxes_structure_mip.pdf"), width = 7, height = 3.5)
 print(
-pred %>% 
-  ggplot() + 
+pred %>%
+  ggplot() +
   # geom_col(aes(y=value, x=calib_yr), width = 1.5, fill="grey")+
   scale_y_continuous(expand = expansion(mult=0.4))+
   geom_line(data = pred_ts,
-            aes(x=YEAR, y=value), col=col_amb, linewidth=0.3) + 
+            aes(x=YEAR, y=value), col=col_amb, linewidth=0.3) +
   geom_point(aes(y=mean, x=calib_yr), pch=1, col=col_obs, size=3, stroke=1.2)+
   geom_errorbar(aes(x=calib_yr, y=mean, ymin=min, ymax=max), col=col_obs, width = 2.5, linewidth=0.8)+
   geom_point(aes(y=value, x=calib_yr), col="grey20")+
-  facet_wrap(~name, 
-             scales="free_y", 
+  facet_wrap(~name,
+             scales="free_y",
              strip.position = "left",
              ncol=4, axes = "margins")+
   geom_label(data = . %>% count(name) %>% mutate(label = letters[row_number()]),
@@ -119,25 +124,25 @@ gauss_mix = function(x, means, sds, wts){
 
 l = pf_read_outputs(output_dir, expt_dir)
 
-dist_amb1 = l$dist %>% 
-  mutate(period = "MID") %>% 
-  mutate(period = ifelse(YEAR > 2000 & YEAR < 2020, yes="AMB", no=period)) %>% 
-  mutate(period = ifelse(YEAR > 19980 & YEAR < 20000, yes="ELE", no=period)) %>% 
-  filter(period %in% c("AMB", "ELE")) %>% 
-  select(-X3) %>% 
-  pivot_longer(cols=-c(YEAR,SPP,period), names_to="size_class") %>% 
+dist_amb1 = l$dist %>%
+  mutate(period = "MID") %>%
+  mutate(period = ifelse(YEAR > 2000 & YEAR < 2020, yes="AMB", no=period)) %>%
+  mutate(period = ifelse(YEAR > 19980 & YEAR < 20000, yes="ELE", no=period)) %>%
+  filter(period %in% c("AMB", "ELE")) %>%
+  select(-X3) %>%
+  pivot_longer(cols=-c(YEAR,SPP,period), names_to="size_class") %>%
   # sum over species
-  group_by(YEAR,size_class, period) %>% 
-  summarize(de = sum(value, na.rm=T)) %>% 
+  group_by(YEAR,size_class, period) %>%
+  summarize(de = sum(value, na.rm=T)) %>%
   # mean over years
-  group_by(size_class, period) %>% 
-  summarize(density=mean(de)) %>% 
-  mutate(density = density*1e-2*1e4) %>% 
-  mutate(size = l$x[as.numeric(sub('.','',size_class))-3]) %>% 
+  group_by(size_class, period) %>%
+  summarize(density=mean(de)) %>%
+  mutate(density = density*1e-2*1e4) %>%
+  mutate(size = l$x[as.numeric(sub('.','',size_class))-3]) %>%
   arrange(size)
-  
 
-# Data for Manaus from https://link.springer.com/article/10.1007/s00442-004-1598-z 
+
+# Data for Manaus from https://link.springer.com/article/10.1007/s00442-004-1598-z
 dist_obs = data.frame(
   xobs = c(15,25,35,45,55,65,75,85,95,105)/100,
   yobs=c(350.5221340921042,
@@ -152,7 +157,7 @@ dist_obs = data.frame(
          0.5597156879584093)/10
 )
 
-p1 = dist_amb1 %>% 
+p1 = dist_amb1 %>%
   ggplot() +
   geom_line(aes(x=size, y=density, group=period, col=period), linewidth=0.8)+
   scale_y_log10(limits=c(1e-3, 1000))+
@@ -170,36 +175,36 @@ p1
 
 year_sq = 2000
 
-df_trait = l$dat2 %>% 
-  mutate(period = "MID") %>% 
-  mutate(period = ifelse(YEAR > 2000 & YEAR < 2020, yes="AMB", no=period)) %>% 
-  mutate(period = ifelse(YEAR > 19980 & YEAR < 20000, yes="ELE", no=period)) %>% 
-  filter(period %in% c("AMB", "ELE")) %>% 
-  select(YEAR, PID, BA, period) %>% 
-  left_join(l$traits, by = c("PID"="SPP", "YEAR"="YEAR")) %>% 
-  filter(!grepl("probe", PID)) %>% 
+df_trait = l$dat2 %>%
+  mutate(period = "MID") %>%
+  mutate(period = ifelse(YEAR > 2000 & YEAR < 2020, yes="AMB", no=period)) %>%
+  mutate(period = ifelse(YEAR > 19980 & YEAR < 20000, yes="ELE", no=period)) %>%
+  filter(period %in% c("AMB", "ELE")) %>%
+  select(YEAR, PID, BA, period) %>%
+  left_join(l$traits, by = c("PID"="SPP", "YEAR"="YEAR")) %>%
+  filter(!grepl("probe", PID)) %>%
   mutate(YEAR = as.integer(YEAR)) %>%
-  group_by(PID, period) %>% 
+  group_by(PID, period) %>%
   summarize(across(everything(), ~mean(.)))
 
 # %>%
-#   mutate(yeardiff = abs(YEAR-year_sq)) %>% 
+#   mutate(yeardiff = abs(YEAR-year_sq)) %>%
 #   filter(yeardiff == min(yeardiff))
-# 
+#
 # p2 = tibble(x = seq(0,300, length.out=1000),
-#        y_obs = traits_obs %>% 
-#          select(Leaf.LMA..g.m2., Total.BasalArea_2017.cm2.) %>% 
-#          drop_na %>% 
-#          mutate(means =Leaf.LMA..g.m2., 
-#                 wts=Total.BasalArea_2017.cm2./sum(Total.BasalArea_2017.cm2.)) %>% 
+#        y_obs = traits_obs %>%
+#          select(Leaf.LMA..g.m2., Total.BasalArea_2017.cm2.) %>%
+#          drop_na %>%
+#          mutate(means =Leaf.LMA..g.m2.,
+#                 wts=Total.BasalArea_2017.cm2./sum(Total.BasalArea_2017.cm2.)) %>%
 #          with(gauss_mix(x=x, means, wts, sds=180*0.1)),
-#        y_pred_amb = df_trait %>% 
-#          filter(period == "AMB") %>% 
+#        y_pred_amb = df_trait %>%
+#          filter(period == "AMB") %>%
 #          with(gauss_mix(x=x, means =LMA*1000, wts=BA/sum(BA), sds=180*0.14)),
-#        y_pred_ele = df_trait %>% 
-#          filter(period == "ELE") %>% 
+#        y_pred_ele = df_trait %>%
+#          filter(period == "ELE") %>%
 #          with(gauss_mix(x=x, means =LMA*1000, wts=BA/sum(BA), sds=180*0.14))
-#        ) %>% 
+#        ) %>%
 #   ggplot(aes(x=x))+
 #   geom_line(aes(y=y_obs), col="grey50")+
 #   geom_ribbon(aes(ymax=y_obs, ymin=0), fill="grey", alpha=0.5)+
@@ -210,22 +215,22 @@ df_trait = l$dat2 %>%
 #   theme_bw()+
 #   amz_theme()+
 #   labs(y="Density", x=labels2["LMA"])
-#   
+#
 
 p3 = tibble(x = seq(200,1200, length.out=1000),
-       y_obs = traits_obs %>% 
-         select(meanWoodDensity..g.cm3., Total.BasalArea_2017.cm2.) %>% 
-         drop_na %>% 
-         mutate(means =meanWoodDensity..g.cm3.*1000, 
-                wts=Total.BasalArea_2017.cm2./sum(Total.BasalArea_2017.cm2.)) %>% 
+       y_obs = traits_obs %>%
+         select(meanWoodDensity..g.cm3., Total.BasalArea_2017.cm2.) %>%
+         drop_na %>%
+         mutate(means =meanWoodDensity..g.cm3.*1000,
+                wts=Total.BasalArea_2017.cm2./sum(Total.BasalArea_2017.cm2.)) %>%
          with(gauss_mix(x=x, means, wts, sds=800*0.1)),
-       y_pred_amb = df_trait %>% 
-         filter(period == "AMB") %>% 
+       y_pred_amb = df_trait %>%
+         filter(period == "AMB") %>%
          with(gauss_mix(x=x, means =WD, wts=BA/sum(BA), sds=800*0.14)),
-       y_pred_ele = df_trait %>% 
-         filter(period == "ELE") %>% 
+       y_pred_ele = df_trait %>%
+         filter(period == "ELE") %>%
          with(gauss_mix(x=x, means =WD, wts=BA/sum(BA), sds=800*0.14))
-  ) %>% 
+  ) %>%
   ggplot(aes(x=x))+
   geom_line(aes(y=y_obs), col=col_obs)+
   geom_ribbon(aes(ymax=y_obs, ymin=0), fill=col_obs, alpha=0.2)+
@@ -237,19 +242,19 @@ p3 = tibble(x = seq(200,1200, length.out=1000),
   labs(y="Density", x=labels2["WD"])
 
 p4 = tibble(x = seq(0,50, length.out=1000),
-       y_obs = traits_obs %>% 
-         select(Height_Max.m., Total.BasalArea_2017.cm2.) %>% 
-         drop_na %>% 
-         mutate(means =Height_Max.m., 
-                wts=Total.BasalArea_2017.cm2./sum(Total.BasalArea_2017.cm2.)) %>% 
+       y_obs = traits_obs %>%
+         select(Height_Max.m., Total.BasalArea_2017.cm2.) %>%
+         drop_na %>%
+         mutate(means =Height_Max.m.,
+                wts=Total.BasalArea_2017.cm2./sum(Total.BasalArea_2017.cm2.)) %>%
          with(gauss_mix(x=x, means, wts, sds=25*0.1)),
-       y_pred_amb = df_trait %>% 
-         filter(period == "AMB") %>% 
+       y_pred_amb = df_trait %>%
+         filter(period == "AMB") %>%
          with(gauss_mix(x=x, means =HMAT, wts=BA/sum(BA), sds=25*0.14)),
-       y_pred_ele = df_trait %>% 
-         filter(period == "ELE") %>% 
+       y_pred_ele = df_trait %>%
+         filter(period == "ELE") %>%
          with(gauss_mix(x=x, means =HMAT, wts=BA/sum(BA), sds=25*0.14))
-  ) %>% 
+  ) %>%
   ggplot(aes(x=x))+
   geom_line(aes(y=y_obs), col=col_obs)+
   geom_ribbon(aes(ymax=y_obs, ymin=0), fill=col_obs, alpha=0.2)+
@@ -262,19 +267,19 @@ p4 = tibble(x = seq(0,50, length.out=1000),
   labs(y="Density", x=labels2["HMAT"])
 
 p5 = tibble(x = seq(-6,-0.1, length.out=1000),
-       y_obs = traits_obs %>% 
-         select(P50..Mpa., Total.BasalArea_2017.cm2.) %>% 
-         drop_na %>% 
-         mutate(means = P50..Mpa., 
-                wts=Total.BasalArea_2017.cm2./sum(Total.BasalArea_2017.cm2.)) %>% 
+       y_obs = traits_obs %>%
+         select(P50..Mpa., Total.BasalArea_2017.cm2.) %>%
+         drop_na %>%
+         mutate(means = P50..Mpa.,
+                wts=Total.BasalArea_2017.cm2./sum(Total.BasalArea_2017.cm2.)) %>%
          with(gauss_mix(x=x, means, wts, sds=2*0.31)),
-       y_pred_amb = df_trait %>% 
-         filter(period == "AMB") %>% 
+       y_pred_amb = df_trait %>%
+         filter(period == "AMB") %>%
          with(gauss_mix(x=x, means =P50X, wts=BA/sum(BA), sds=2*0.31)),
-       y_pred_ele = df_trait %>% 
-         filter(period == "ELE") %>% 
+       y_pred_ele = df_trait %>%
+         filter(period == "ELE") %>%
          with(gauss_mix(x=x, means =P50X, wts=BA/sum(BA), sds=2*0.31))
-  ) %>% 
+  ) %>%
   ggplot(aes(x=x))+
   geom_line(aes(y=y_obs), col=col_obs)+
   geom_ribbon(aes(ymax=y_obs, ymin=0), fill=col_obs, alpha=0.2)+
@@ -289,8 +294,8 @@ p5 = tibble(x = seq(-6,-0.1, length.out=1000),
 
 library(patchwork)
 
-cairo_pdf(file=here::here("figures/calib_traits_sizedist.pdf"), width = 6, height = 5)
+# cairo_pdf(file=here::here("figures/calib_traits_sizedist.pdf"), width = 6, height = 5)
 print(
-(p1 + p3) / (p4 + p5) + plot_layout(guides="collect") 
+(p1 + p3) / (p4 + p5) + plot_layout(guides="collect")
 )
-dev.off()
+# dev.off()

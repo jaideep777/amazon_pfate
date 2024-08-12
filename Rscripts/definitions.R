@@ -1,3 +1,4 @@
+library(tidyverse)
 # exprlabel = function(a,b,c=NULL){
 #   a = substitute(a)
 #   b = substitute(b)
@@ -65,13 +66,13 @@ labels3 = c(
   SEEDS  = "<br>Seed rain<br>(yr<sup>&minus;1</sup>)"
 )
 
-multi_breaks = str_count(labels3, pattern = "<br>")==2
+multi_breaks = stringr::str_count(labels3, pattern = "<br>")==2
 labels2 = labels3
 labels2[multi_breaks] = stringr::str_replace(labels3[multi_breaks], "<br>", " ")
 names(labels2) = names(labels3)
 
-unitstart = labels3 %>% str_locate_all(pattern = "<br>") %>% lapply(function(x){x[2,"start"]}) %>% unlist() 
-labels_nounit = substr(labels3, 1, unitstart-1) %>% str_replace_all(",","")
+unitstart = labels3 |> stringr::str_locate_all(pattern = "<br>") |> lapply(function(x){x[2,"start"]}) |> unlist() 
+labels_nounit = substr(labels3, 1, unitstart-1) |> stringr::str_replace_all(",","")
 names(labels_nounit) = names(labels3)
 
 amz_theme = function(){

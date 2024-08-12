@@ -359,10 +359,10 @@ Amazon paper (Joshi et al, in prep) and Plant-FATE’s contribution to
 Amazon FACE MIP (AmzMIP, paper led by Carolina Blanco).</p>
 <div id="model-code" class="section level2">
 <h2>Model code</h2>
-<p>Calibrations were performed on commit <code>4f9867e</code> (unpatched
-code). However, this commit did not have all the cohort properties, and
-did not write instantaneous output (all outputs were written
-annually).</p>
+<p>Calibrations (for the Plant-FATE paper) were performed on commit
+<code>4f9867e</code> (unpatched code). However, this commit did not have
+all the cohort properties, and did not write instantaneous output (all
+outputs were written annually).</p>
 <p>Hence I patched <code>CommunityProperties</code> from commit
 <code>dmip_v1.0</code> to output inst values, and commented out soil
 related outputs. Later when merging <code>feature/soil</code> into
@@ -375,10 +375,12 @@ performed.</p>
 <code>release/oligomorphic_paper</code> before submission and a tag will
 be created for the first Plant-FATE release from the merge.</p>
 </div>
-<div id="simulation-setup" class="section level2">
-<h2>Simulation setup</h2>
-<p>For Amazon paper, all variables have been calibrated from relevant
-data. The input data, config files, and outputs reside on
+<div id="plant-fate-runs-for-amazon-manuscript" class="section level2">
+<h2>Plant-FATE runs for Amazon manuscript</h2>
+<div id="simulation-setup" class="section level3">
+<h3>Simulation setup</h3>
+<p>For the Plant-FATE paper, all variables have been calibrated from
+relevant data. The input data, config files, and outputs reside on
 <code>GECO-Workstation-2</code> in
 <code>/data/scratch/jaideep/AmzMIP_server</code>. The folder structure
 is as follows:</p>
@@ -406,15 +408,15 @@ patched code.</li>
 starting at 2000 under eCO2 = 614.2 ppm. One has +50% rs, the second has
 +50% zeta.</li>
 </ul>
+</div>
 <div id="model-run-commands" class="section level3">
 <h3>Model run commands</h3>
 <p>The commands for running the model are of the form:</p>
 <pre><code>nohup plantfate config_files/p_amz_mip_final.ini -19999.99 20000.01 &gt; logs/p_hist-414_evol_4.txt &amp;</code></pre>
 <p>They can be found in <code>run_commands.txt</code> .</p>
 </div>
-</div>
-<div id="lifetime-fitness-simulations" class="section level2">
-<h2>Lifetime fitness simulations</h2>
+<div id="lifetime-fitness-simulations" class="section level3">
+<h3>Lifetime fitness simulations</h3>
 <p>Simulations for calculating fitness landscapes are done using the R
 version of the patched code. The R script that does the calculations and
 plots is in <code>Rscripts/plot_fitness_wdopt_from_dir.R</code>. There a
@@ -424,10 +426,38 @@ used for fitness calculations. There is no difference when z* does not
 fluctuate, e.g., in the ELE_evol run from
 <code>pfate_output_evol_vs_comm</code> .</p>
 </div>
-<div id="figures" class="section level2">
-<h2>Figures</h2>
+<div id="figures" class="section level3">
+<h3>Figures</h3>
 <p>Rscripts for generating figures are in <code>Rscripts/</code>. Each
 script generates one figure.</p>
+</div>
+</div>
+<div id="plant-fate-runs-for-amazon-mip" class="section level2">
+<h2>Plant-FATE runs for Amazon MIP</h2>
+<p>The MIP runs differ slightly from the runs for the Plant-FATE
+manuscript.</p>
+<ul>
+<li><p>For MIP, the model is not calibrated specifically with site data.
+Instead literature-derived parameter values are used for almost all
+parameters. Others are guesstimates.</p></li>
+<li><p>MIP simulations are done at a monthly timestep (0.08333
+years)</p></li>
+</ul>
+<div id="model-run-commands-1" class="section level3">
+<h3>Model run commands</h3>
+<p>The commands for running the model are of the form:</p>
+<pre><code>nohup plantfate config_files/p_amz_mip_final_decalibrated.ini -19999.99 20000.01 &gt; logs/p_hist-ele_evol_4.txt &amp;</code></pre>
+</div>
+<div id="simulation-setup-1" class="section level3">
+<h3>Simulation setup</h3>
+<p>The input data, config files, and outputs reside on
+<code>GECO-Workstation-2</code> in
+<code>/data/scratch/jaideep/AmzMIP_server</code>. Outputs for all
+scenarios are in the folder <code>pfate_output_mip</code>. Folders are
+named as <code>AmzMIP_HIST_AMB/ELE_evol/ld_*ky_c2_rs0.04</code>.</p>
+<p>Final data submitted for the MIP is formatted using the R script
+<code>AmzMIP_format_outputs.R</code>.</p>
+</div>
 </div>
 </div>
 

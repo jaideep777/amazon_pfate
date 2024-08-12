@@ -3,7 +3,7 @@ rm(list=ls())
 
 
 input_dir  = here::here("input_data")
-output_dir = "~/Desktop/AmzMIP/pfate_output_mip/"
+output_dir = here::here("pfate_output_mip")
 
 read_pfate_outputs = function(input_dir, output_dir, expt_dir){
   wd_back = getwd()
@@ -82,14 +82,17 @@ dirs = list(
   scenario = c("AMB", "ELE"),
   div = c("evol", "ld")) |>
   cross_df() |>
+  filter(!(div=="ld" & scenario=="AMB")) |>
   mutate(dirs = paste0(
     sitename, "_HIST_",
     scenario, "_",
     div, "_",
-    "20ky_c2_rs0.04"
+    case_match(div,
+      "evol"~"20ky",
+      "ld"~"1ky"),
+    "_c2_rs0.04"
   )) |>
-  distinct() |> 
-  filter(div == "evol")
+  distinct() 
 
 ## READ DATA 
 
@@ -143,6 +146,7 @@ bind_rows(
   data_proc %>% 
     select(scenario, div, D) %>% 
     unnest(D) %>%
+    filter(div == "evol") %>% 
     filter(YEAR %in% seq(-19000, 20000, by=51)) %>% 
     pivot_longer(-(scenario:DoY)) %>% 
     mutate(YEAR=YEAR+DoY/365),
@@ -150,6 +154,7 @@ bind_rows(
   data_proc %>% 
     select(scenario, div, Y) %>% 
     unnest(Y) %>%
+    filter(div == "evol") %>% 
     filter(YEAR %in% seq(-19000, 20000, by=51)) %>% 
     pivot_longer(-(scenario:PID))
 ) %>% 
@@ -162,6 +167,34 @@ bind_rows(
   theme_bw()
 dev.off()
 
+cairo_pdf(here::here("figures/mip_hd_vs_ld.pdf"), width=11.3, height=7)
+bind_rows(
+  data_proc %>% 
+    select(scenario, div, D) %>% 
+    unnest(D) %>%
+    group_by(div, scenario) %>% 
+    filter(YEAR > max(YEAR)-100) %>% 
+    ungroup() %>% 
+    pivot_longer(-(scenario:DoY)) %>% 
+    group_by(name, scenario, div) %>% 
+    summarize(value = mean(value)),
+  
+  data_proc %>% 
+    select(scenario, div, Y) %>% 
+    unnest(Y) %>%
+    group_by(div, scenario) %>% 
+    filter(YEAR > max(YEAR)-100) %>% 
+    ungroup() %>% 
+    pivot_longer(-(scenario:PID)) %>% 
+    group_by(name, scenario, div, PID) %>% 
+    summarize(value = mean(value))
+) %>% 
+  ggplot() +
+  geom_boxplot(aes(x=paste(scenario, div), y=value, col=paste(scenario,div))) + 
+  facet_wrap(~name, scales="free_y")+
+  scale_y_continuous(expand = expansion(mult = 0.5))+
+  theme_bw()
+dev.off()
 
 ## Filter and write outputs
 
@@ -189,6 +222,7 @@ data_proc %>%
   group_by(file) %>%
   do(a = readr::write_csv(as.data.frame(.$value), file = .$file))
 
+
 # 
 # ## Write long-term outputs
 # data_proc %>%
@@ -200,3 +234,16 @@ data_proc %>%
 #   do(a = write_csv(as.data.frame(.$value), file = .$file))
 # 
 # 
+
+## Traits for LD run
+
+data_proc %>% 
+  select(scenario, div, Y) %>% 
+  unnest(Y) %>% 
+  filter(scenario == "AMB") %>% 
+  filter(div == "evol") %>% 
+  filter(YEAR > 1900 & YEAR < 2000) %>% 
+  select(YEAR, PID, MH, WD, P50) %>% 
+  pivot_longer(-c(YEAR, PID)) %>% 
+  group_by(PID, name) %>% 
+  summarize(value = mean(value))

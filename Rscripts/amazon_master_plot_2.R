@@ -16,10 +16,14 @@ input_dir = "~/codes/amazon_pfate/input_data/"
 output_dir = "~/codes/amazon_pfate/pfate_output_mip/"
 
 # expt_dir = "calib_AmzMIP_HIST_ELE_evol_20ky_7"
-# expt_dir = "calib2_AmzMIP_HIST_ELE_evol_20ky_2"
+expt_dir = "calib2_AmzMIP_HIST_ELE_evol_20ky_2"
 
-expt_dir = "AmzMIP_HIST_ELE_evol_20ky_2_2"
-expt_dir = "AmzMIP_HIST_ELE_evol_20ky_2_3_rs0.04"
+# output_dir = "~/Desktop/AmzMIP/pfate_output_mip/"
+expt_dir = "AmzMIP_HIST_ELE_evol_20ky_c2_rs0.035"
+# expt_dir = "AmzMIP_HIST_AMB_evol_20ky_c2_rs0.035"
+
+# expt_dir = "AmzMIP_HIST_ELE_evol_20ky_2_3_rs0.04"
+expt_dir = "AmzMIP_HIST_ELE_ld_1ky_c2_rs0.04"
 
 # expt_dir = "HIST_ELE_HD_randomspp3_2xco2"
 # expt_dir = "calib_5spp_3"
@@ -490,6 +494,9 @@ abline(h=0, col="black", lwd=0.2)
 #   pivot_wider(names_from = SPP, values_from = r0_avg) %>%
 #   with(plot(I((`3_probe1`-`3`)/.001)~YEAR, type="l"))
 # abline(h=0, col="red")
+
+
+
 
 if (plot_to_file) dev.off()
 
