@@ -82,7 +82,6 @@ dirs = list(
   scenario = c("AMB", "ELE"),
   div = c("evol", "ld")) |>
   cross_df() |>
-  filter(!(div=="ld" & scenario=="AMB")) |>
   mutate(dirs = paste0(
     sitename, "_HIST_",
     scenario, "_",
@@ -188,7 +187,7 @@ bind_rows(
     pivot_longer(-(scenario:PID)) %>% 
     group_by(name, scenario, div, PID) %>% 
     summarize(value = mean(value))
-) %>% 
+  ) %>% 
   ggplot() +
   geom_boxplot(aes(x=paste(scenario, div), y=value, col=paste(scenario,div))) + 
   facet_wrap(~name, scales="free_y")+
@@ -218,7 +217,7 @@ data_proc %>%
     ),
     ".csv"
   )) %>% 
-  mutate(file = here::here("mip_data_submitted", filename)) %>%
+  mutate(file = here::here("mip_data_submitted_2", filename)) %>%
   group_by(file) %>%
   do(a = readr::write_csv(as.data.frame(.$value), file = .$file))
 

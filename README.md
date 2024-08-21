@@ -51,6 +51,22 @@ The MIP runs differ slightly from the runs for the Plant-FATE manuscript.
 
 - MIP simulations are done at a monthly timestep (0.08333 years)
 
+### Representation of diversity
+
+Diversity is represented in terms of three traits: 
+
+   - Wood density (WD)
+   - Max height
+   - Xylem P50
+
+   The community-level trait distribution is currently assumed to be unimodal, but with a finite (interspecific) variance. Under high-diversity scenarios, this variance allows the community-level mean (CWM) trait values to change over time following fitness gradients. 
+   
+   In principle, this variance also introduces correction terms to the calculation of emergent ecosystem properties, but for the current simulations, we have kept the variance small enough for these corrections to be negligible. The variance only contributes to the evolution of traits by gradually ascending the fitness landscape.
+   
+   Furthermore, in principle, the curvature of the fitness lanscape also contributes to changes in variance over time. However, we have not implemented this in Plant-FATE yet, so trait variances are assumed to be constant. 
+
+   Under low-diversity scenarios, traits are held constant at the mode of the aforementioned distribution (variance is set to 0, such that there is no trait evolution). In both scenarios, only the mode appears in the model outputs.
+   
 ### Model run commands
 
 The commands for running the model are of the form:
