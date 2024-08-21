@@ -294,8 +294,80 @@ p5 = tibble(x = seq(-6,-0.1, length.out=1000),
 
 library(patchwork)
 
-# cairo_pdf(file=here::here("figures/calib_traits_sizedist.pdf"), width = 6, height = 5)
+cairo_pdf(file=here::here("figures/calib_traits_sizedist.pdf"), width = 6, height = 5)
 print(
 (p1 + p3) / (p4 + p5) + plot_layout(guides="collect")
 )
-# dev.off()
+dev.off()
+
+
+##### Sample for PPTs #### 
+
+q1 = l$dat_d %>% 
+  mutate(
+    GPP = GPP*365.2425,
+    NPP = NPP*365.2425,
+  ) %>% 
+  filter(YEAR < -19880) %>% 
+  mutate(YEAR = YEAR + 20000) %>% 
+  ggplot(aes(x=YEAR))+
+  geom_line(aes(y=GPP), linewidth=0.4)+
+  geom_line(aes(y=NPP), linewidth=0.1)+
+  annotate(geom="rect", xmin=-Inf, xmax=Inf, ymin=calib %>% filter(name=="GPP") %>% pull(min), ymax=calib %>% filter(name=="GPP") %>% pull(max), fill=alpha("seagreen2", 0.5))+
+  geom_hline(yintercept = calib %>% filter(name=="NPP") %>% pull(mean), col=alpha("seagreen2", 0.5), linewidth=2)+
+  amz_theme()+
+  scale_x_continuous(n.breaks = 3)+
+  # geom_label(data = tibble(label="a"),
+  #            aes(x=-Inf, y=Inf, label=label), inherit.aes = F, hjust=0, vjust=1, label.size = 0, size = 4.5) +
+  labs(y="**Gross**/Net productivity<br>(kg m<sup>&minus;2</sup> yr<sup>&minus;1</sup>)", x="Years")+
+  theme(plot.title = ggtext::element_markdown(lineheight=1.2, colour = "grey40", hjust=0.5))+
+  ggtitle("A. CO<sub>2</sub> fluxes")
+
+q2 = dist_amb1 %>% 
+  filter(period == "AMB") %>% 
+  ggplot() +
+  geom_line(aes(x=size, y=density, group=period), linewidth=0.8)+
+  scale_y_log10(limits=c(1e-3, 1000))+
+  geom_point(data=dist_obs, aes(x=xobs, y=yobs), shape = 21, col="seagreen", fill=alpha("seagreen2", 0.5), size=3)+
+  # geom_label(data = tibble(label="b"),
+  #            aes(x=-Inf, y=Inf, label=label), inherit.aes = F, hjust=0, vjust=1, label.size = 0, size = 4.5) +
+  xlab("Diameter<br>(m)")+
+  ylab("Density<br>(stems cm<sup>&minus;1</sup> ha<sup>&minus;1</sup>)")+
+  scale_x_continuous(n.breaks = 3, limits = c(0.01, 1.2))+
+  theme_bw()+
+  amz_theme()+
+  theme(plot.title = ggtext::element_markdown(lineheight=1.2, colour = "grey40", hjust=0.5))+
+  ggtitle("B. Size distribution")
+
+q3 = tibble(x = seq(200,1200, length.out=1000),
+            y_obs = traits_obs %>% 
+              select(meanWoodDensity..g.cm3., Total.BasalArea_2017.cm2.) %>% 
+              drop_na %>% 
+              mutate(means =meanWoodDensity..g.cm3.*1000, 
+                     wts=Total.BasalArea_2017.cm2./sum(Total.BasalArea_2017.cm2.)) %>% 
+              with(gauss_mix(x=x, means, wts, sds=800*0.1)),
+            y_pred_amb = df_trait %>% 
+              filter(period == "AMB") %>% 
+              with(gauss_mix(x=x, means =WD, wts=BA/sum(BA), sds=800*0.14))
+  ) %>% 
+  ggplot(aes(x=x))+
+  geom_line(aes(y=y_obs, col="Observed"))+
+  geom_line(aes(y=y_obs), col="seagreen")+
+  geom_ribbon(aes(ymax=y_obs, ymin=0), fill=alpha("seagreen2", 0.5), alpha=0.2)+
+  geom_line(aes(y=y_pred_amb, col="Predicted"), linewidth=0.8)+
+  # geom_label(data = tibble(label="c"),
+  #            aes(x=-Inf, y=Inf, label=label), inherit.aes = F, hjust=0, vjust=1, label.size = 0, size = 4.5) +
+  amz_theme()+
+  scale_x_continuous(n.breaks = 3)+
+  labs(y="Density", x=labels2["WD"], col="")+
+  theme(plot.title = ggtext::element_markdown(lineheight=1.2, colour = "grey40", hjust=0.5))+
+  ggtitle("C. Trait strategy")+
+  scale_color_manual(values = c("Observed"=alpha("seagreen2", 0.5), 
+                                "Predicted" = "black"))
+
+
+library(patchwork)
+
+q1+q2+q3 + plot_layout(guides="collect") & theme(legend.position="bottom")
+
+
