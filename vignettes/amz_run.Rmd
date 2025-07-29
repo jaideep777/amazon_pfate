@@ -1,0 +1,261 @@
+---
+title: "PlantFATE demo"
+author: "Jaideep Joshi"
+date: "2023-01-21"
+output:
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+```
+
+```{r}
+library(PlantFATE)
+library(tidyverse)
+library(kableExtra)
+
+print(getwd())
+```
+
+```{r}
+# Function to preview tables using kable
+preview_table <- function(data, n=6) {
+  data |> 
+    head(n=n) |> 
+    kable() |> 
+    kable_styling() |> 
+    column_spec(1:ncol(data), border_left = "solid lightgray", border_right = "solid lightgray") |> 
+    scroll_box(width = "100%")
+}
+
+plot_gauss_mix = function(x, means, sds, wts, add=T, col, add_polygon=F, ...){
+  y = x*0
+  if (length(sds)==1) sds = rep(sds, length(means))
+  for (i in 1:length(means)){
+    y = y + wts[i]*dnorm(x, mean = means[i], sd=sds[i])
+  }
+  if (add) points(y~x, col=col, ...)
+  else plot(y~x, col=col, ...)
+  if (add_polygon){
+    polygon(y~x, col=scales::alpha(col, 0.5), border = NA)
+  }
+}
+```
+
+## Analyze observed traits
+
+```{r}
+traits = read_csv("input_data/Plant_Traits_AmzFACE_for_PlantFATE_Orig.csv")
+
+traits |> preview_table()
+```
+
+
+Plot observed distributions
+
+```{r}
+
+par(mfrow=c(2,2), mar=c(4,4,1,1), oma=c(1,1,1,1))
+traits |> 
+    select(Species, BA='Total BasalArea_2017(cm2)', WD='meanWoodDensity (g/cm3)', Hmat='Height_Max(m)', LMA='Leaf LMA (g/m2)', P50='P50 (Mpa)') |> 
+    pivot_longer(-c(Species, BA)) |> 
+    drop_na() |>
+    group_by(name) |> 
+    do(
+        with(., 
+          plot_gauss_mix(
+            x=seq(min(value), max(value), length.out=100), 
+            means=value, 
+            sds=0.14*mean(abs(value), na.rm=T), 
+            wts=BA/sum(BA), 
+            add=F, 
+            col="blue", 
+            type="l",
+            add_polygon=F,
+            xlab=first(name),
+            ylab = "Density"
+          ) |> as.data.frame()
+        )
+    )
+```
+
+
+Calculate basal-area weighted mean traits from the observed data
+
+```{r}
+mean_traits = traits |> 
+    select(Species, BA='Total BasalArea_2017(cm2)', WD='meanWoodDensity (g/cm3)', Hmat='Height_Max(m)', LMA='Leaf LMA (g/m2)', P50='P50 (Mpa)') |> 
+    pivot_longer(-c(Species, BA)) |> 
+    drop_na() |>
+    group_by(name) |> 
+    summarize(mean = sum(value*BA)/sum(BA),
+              sd = sqrt(sum(BA*(value - mean(value))^2)/sum(BA)),
+              n = n(),
+              cv = sd/abs(mean),
+              cv2 = cv^2)
+
+mean_traits |> preview_table()
+```
+
+## Create traits file for Plant-PlantFATE
+
+```{r}
+
+mt_wide = mean_traits |> select(name, mean) |> pivot_wider(values_from=mean)
+
+data.frame(
+    Family="F",
+    Species="S",
+    `Number of individuals`=0,
+    `Total BasalArea_2017(cm2)`=0,
+     WD=mt_wide$WD,
+     Hm=mt_wide$Hmat,
+     LMA=mt_wide$LMA,
+     P50=mt_wide$P50 
+) |> 
+    write_csv("input_data/traits_mean_obs.csv")
+
+```
+
+## Run PlantFATE
+
+Run Plant-FATE with observed mean traits
+
+```{r}
+setwd(rprojroot::find_rstudio_root_file())
+
+sim = new(Patch, "config_files/p_amz_obs_mean_traits.ini")
+sim$init(1500, 2020)
+sim$simulate()
+
+cat("ba = ", sim$get_props_species()$basal_area_vec*1e4)
+
+sim$close()
+
+```
+
+## Analyze results
+
+```{r}
+input_dir = "input_data"
+output_dir = "pfate_output"
+prefix = "AmzMIP_AMB_ObsMeanTraits"
+solver = "ebt"
+dir = paste0("",output_dir,"/",prefix,"_",solver)
+
+source(here::here("Rscripts/definitions.R"))
+
+traits_obs = read.csv(file = paste0(input_dir, "/Plant_Traits_AmzFACE_for_PlantFATE_Orig.csv"))
+
+calib_fluxes =
+  read.csv(text = gsub(pattern = " ", replacement="",
+      "name, mean, min, max, type
+      GPP,  NA, 3,  3.5, fluxes
+      NPP, 1.31, NA, NA, fluxes
+      AGB, NA, 16.9, 20.7, structure
+      GS, 0.16, NA, NA, fluxes
+      LAI, NA, 5.3, 6.2, structure
+      CFR, NA, 0.48, 0.66, structure
+      VCMAX, NA, 39.3, 45.7, fluxes"),
+           header=T, sep=",", as.is = F) %>%
+  as_tibble()
+
+calib_ba =
+  traits_obs %>%
+  select(Species, Total.BasalArea_2017.cm2., Height_Max.m., meanWoodDensity..g.cm3., Leaf.LMA..g.m2., P50..Mpa.) %>%
+  mutate(BA.m2.ha = Total.BasalArea_2017.cm2.*1e-4*1e4/(8*pi*(30/2)^2)) %>%
+  summarize(
+    BA = sum(BA.m2.ha, na.rm=T),
+  ) %>%
+  pivot_longer(everything(), values_to = "mean") %>%
+  mutate(type="structure")
+
+calib = calib_fluxes %>% bind_rows(calib_ba)
+
+l1 = pf_read_outputs(input_dir, output_dir, expt_dir=prefix) %>%
+       pf_slice_time(1500, 2100)
+
+pred_ts = l1$dat_d %>%
+  select(YEAR, GPP, NPP, GS, VCMAX) %>%
+  # filter(YEAR >= 1999 & YEAR <= 2020) %>%
+  mutate(
+    GPP = GPP*365.2425,
+    NPP = NPP*365.2425,
+  ) %>%
+  pivot_longer(-YEAR) %>%
+  bind_rows(
+    l1$dat3 %>%
+      select(YEAR, CL, CW, CCR, CFR, BA, LAI, TB) %>%
+      # filter(YEAR >= 1999 & YEAR <= 2020) %>%
+      mutate(
+        AGB = CL+CW,
+        BGB = CCR+CFR,
+        BA = BA*1e4) %>%
+      pivot_longer(-YEAR)
+  ) %>%
+  bind_rows(
+    l1$traits %>%
+      # filter(YEAR >= 1999 & YEAR <= 2020) %>%
+      filter(!grepl("probe", SPP)) %>%
+      select(YEAR, LMA, WD, HMAT, P50X) %>%
+      pivot_longer(-YEAR)
+  ) %>%
+  bind_rows(data.frame(YEAR=NA, name="BA", value=20)) %>%
+  bind_rows(data.frame(YEAR=NA, name="AGB", value=10)) %>%
+  inner_join(calib) %>%
+  mutate(name = factor(name, levels = unique(name), labels = labels2[unique(name)]))
+
+pred = pred_ts %>%
+  # filter(YEAR >= 2000 & YEAR <= 2015) %>%
+  filter(!is.na(YEAR)) %>%
+  group_by(name, type) %>%
+  summarize(across(everything(), ~mean(.))) %>%
+  ungroup()
+
+calib_yr = 2007
+
+print(
+pred %>%
+  ggplot() +
+  # geom_col(aes(y=value, x=calib_yr), width = 1.5, fill="grey")+
+  scale_y_continuous(expand = expansion(mult=0.4))+
+  geom_line(data = pred_ts,
+            aes(x=YEAR, y=value), col=col_amb, linewidth=0.3) +
+  geom_point(aes(y=mean, x=calib_yr), pch=1, col=col_obs, size=3, stroke=1.2)+
+  geom_errorbar(aes(x=calib_yr, y=mean, ymin=min, ymax=max), col=col_obs, width = 2.5, linewidth=0.8)+
+  geom_point(aes(y=value, x=calib_yr), col="grey20")+
+  facet_wrap(~name,
+             scales="free_y",
+             strip.position = "left",
+             ncol=4, axes = "margins")+
+  geom_label(data = . %>% count(name) %>% mutate(label = letters[row_number()]),
+             aes(x=-Inf, y=Inf, label=label), inherit.aes = F, hjust=0, vjust=1, label.size = 0, size = 4.5) +
+  labs(x = "Year", y = "")+
+  scale_x_continuous(n.breaks = 3)+
+  amz_theme()+
+  theme(plot.margin = margin(t = 5, b=5, r = 10, unit = "pt"))
+)
+
+
+
+print(
+l1$Zp |> 
+  pivot_longer(-YEAR) |> 
+  drop_na() |>
+  ggplot(aes(x=YEAR, y=value, group=name, col=name)) +
+  geom_line() +
+  scale_color_viridis_d(direction=-1, end=0.95) + 
+  labs(x="Year", y="Z*") +
+  theme_classic(base_size = 16) 
+)
+
+l1$Zp |>
+  filter(YEAR > (max(YEAR)-100)) |>
+  summarize(across(everything(), ~mean(.x, na.rm = TRUE))) |> 
+  pivot_longer(-YEAR) |>
+  drop_na() |> 
+  pull(value) |> 
+  print()
+```

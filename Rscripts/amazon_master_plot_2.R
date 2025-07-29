@@ -1,4 +1,5 @@
 library(tidyverse)
+library(PlantFATE)
 rm(list=ls())
 
 ### To convert old format txt outputs to new csv format:
@@ -13,30 +14,30 @@ rm(list=ls())
 
 
 input_dir = "~/codes/amazon_pfate/input_data/"
-output_dir = "~/codes/amazon_pfate/pfate_output_mip/"
+output_dir = "~/codes/amazon_pfate/pfate_output/"
 
-# expt_dir = "calib_AmzMIP_HIST_ELE_evol_20ky_7"
-expt_dir = "calib2_AmzMIP_HIST_ELE_evol_20ky_2"
+# # expt_dir = "calib_AmzMIP_HIST_ELE_evol_20ky_7"
+# expt_dir = "calib2_AmzMIP_HIST_ELE_evol_20ky_2"
 
-# output_dir = "~/Desktop/AmzMIP/pfate_output_mip/"
-expt_dir = "AmzMIP_HIST_ELE_evol_20ky_c2_rs0.035"
-# expt_dir = "AmzMIP_HIST_AMB_evol_20ky_c2_rs0.035"
+# # output_dir = "~/Desktop/AmzMIP/pfate_output_mip/"
+# expt_dir = "AmzMIP_HIST_ELE_evol_20ky_c2_rs0.035"
+# # expt_dir = "AmzMIP_HIST_AMB_evol_20ky_c2_rs0.035"
 
-# expt_dir = "AmzMIP_HIST_ELE_evol_20ky_2_3_rs0.04"
-expt_dir = "AmzMIP_HIST_ELE_ld_1ky_c2_rs0.04"
+# # expt_dir = "AmzMIP_HIST_ELE_evol_20ky_2_3_rs0.04"
+# expt_dir = "AmzMIP_HIST_ELE_ld_1ky_c2_rs0.04"
 
 # expt_dir = "HIST_ELE_HD_randomspp3_2xco2"
 # expt_dir = "calib_5spp_3"
 # expt_dir = "AMB_wd_comm"
 # expt_dir = "ELE_wd_comm"
 # expt_dir = "AMB_ELE_wd_comm"
-# expt_dir = "AMB_ELE_wd_comm_cont_5000"
+expt_dir = "AmzMIP_AMB_ObsMeanTraits"
 
 # # Some old outputs for bugfix testing
 # output_dir = "~/Documents/PlantFATE_outputs/pspm_output_lhobase5"
 # expt_dir = "HIST_ELE_zeta_0.200000"
 
-source("~/codes/Plant-FATE/R/process_outputs.R")
+# source("~/codes/Plant-FATE/R/process_outputs.R")
 
 splinemax = function(x,y, plot=T, ...){
   f = splinefun(x=x, y=y)
@@ -51,7 +52,7 @@ splinemax = function(x,y, plot=T, ...){
   opt
 }
 
-l1 = pf_read_outputs(output_dir, expt_dir)
+l1 = pf_read_outputs(input_dir, output_dir, expt_dir)
 
 l1_slice = pf_slice_time(l1, -20000, 20200)
 
@@ -73,8 +74,8 @@ add_hband = function(ylim, col="grey30", alpha=0.2, xlim=c(-1e20,2020)){
 year_sq = 2000
 year_fu = max(l$dat$YEAR)
 
-traits_obs = read.csv(file = paste0(input_dir, "/Amz_trait_orig.csv"))
-traits_used = read.csv(file = paste0(input_dir, "/Traits_random_HD2.csv"))
+traits_obs = read.csv(file = paste0(input_dir, "Plant_Traits_AmzFACE_for_PlantFATE_Orig.csv"))
+traits_used = read.csv(file = paste0(input_dir, "Traits_random_HD2.csv"))
 
 # To get avg size distribution, sum over species and average over years
 dist_amb = l$dist %>% filter(YEAR > min(YEAR)) %>% filter(YEAR>min(year_sq-500,max(YEAR)-2) & YEAR<year_sq) %>% pivot_longer(cols=-(YEAR:SPP), names_to="size_class") %>% group_by(YEAR,size_class) %>% summarize(de = sum(value, na.rm=T)) %>% pivot_wider(names_from = size_class, values_from = de) %>% colMeans(na.rm=T)

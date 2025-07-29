@@ -1,0 +1,196 @@
+---
+title: "Treelife demo"
+author: "Jaideep Joshi"
+date: "2023-01-21"
+output:
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+```
+
+```{r}
+library(PlantFATE)
+library(tidyverse)
+library(kableExtra)
+
+print(getwd())
+```
+
+```{r}
+# Function to preview tables using kable
+preview_table <- function(data, n=6) {
+  data |> 
+    head(n=n) |> 
+    kable() |> 
+    kable_styling() |> 
+    column_spec(1:ncol(data), border_left = "solid lightgray", border_right = "solid lightgray") |> 
+    scroll_box(width = "100%")
+}
+
+plot_gauss_mix = function(x, means, sds, wts, add=T, col, add_polygon=F, ...){
+  y = x*0
+  if (length(sds)==1) sds = rep(sds, length(means))
+  for (i in 1:length(means)){
+    y = y + wts[i]*dnorm(x, mean = means[i], sd=sds[i])
+  }
+  if (add) points(y~x, col=col, ...)
+  else plot(y~x, col=col, ...)
+  if (add_polygon){
+    polygon(y~x, col=scales::alpha(col, 0.5), border = NA)
+  }
+}
+```
+
+## Analyze observed traits
+
+```{r}
+traits = read_csv("input_data/Plant_Traits_AmzFACE_for_PlantFATE_Orig.csv")
+
+traits |> preview_table()
+```
+
+
+Plot observed distributions
+
+```{r}
+
+par(mfrow=c(2,2), mar=c(4,4,1,1), oma=c(1,1,1,1))
+traits |> 
+    select(Species, BA='Total BasalArea_2017(cm2)', WD='meanWoodDensity (g/cm3)', Hmat='Height_Max(m)', LMA='Leaf LMA (g/m2)', P50='P50 (Mpa)') |> 
+    pivot_longer(-c(Species, BA)) |> 
+    drop_na() |>
+    group_by(name) |> 
+    do(
+        with(., 
+          plot_gauss_mix(
+            x=seq(min(value), max(value), length.out=100), 
+            means=value, 
+            sds=0.14*mean(abs(value), na.rm=T), 
+            wts=BA/sum(BA), 
+            add=F, 
+            col="blue", 
+            type="l",
+            add_polygon=F,
+            xlab=first(name),
+            ylab = "Density"
+          ) |> as.data.frame()
+        )
+    )
+```
+
+
+Calculate basal-area weighted mean traits from the observed data
+
+```{r}
+mean_traits = traits |> 
+    select(Species, BA='Total BasalArea_2017(cm2)', WD='meanWoodDensity (g/cm3)', Hmat='Height_Max(m)', LMA='Leaf LMA (g/m2)', P50='P50 (Mpa)') |> 
+    pivot_longer(-c(Species, BA)) |> 
+    drop_na() |>
+    group_by(name) |> 
+    summarize(mean = sum(value*BA)/sum(BA),
+              sd = sqrt(sum(BA*(value - mean(value))^2)/sum(BA)),
+              n = n(),
+              cv = sd/abs(mean),
+              cv2 = cv^2)
+
+mean_traits |> preview_table()
+
+mt_wide = mean_traits |> 
+    select(name, mean) |>
+    pivot_wider(values_from = mean) |> 
+    mutate(LMA = LMA/1000,
+           WD = WD*1000) 
+```
+
+## Optimal traits
+
+Now we will find the optimal traits for the given light environment
+
+```{r}
+input_dir = "input_data"
+output_dir = "pfate_output"
+prefix = "AmzMIP_AMB_ObsMeanTraits"
+solver = "ebt"
+dir = paste0("",output_dir,"/",prefix,"_",solver)
+
+l = pf_read_outputs(input_dir, output_dir, expt_dir=prefix)
+
+zstar = l$Zp |>
+  filter(YEAR > (max(YEAR)-100)) |>
+  summarize(across(everything(), ~mean(.x, na.rm = TRUE))) |> 
+  pivot_longer(-YEAR) |>
+  drop_na() |> 
+  pull(value)
+  
+canopy_opennes = l$co |>
+  filter(YEAR > (max(YEAR)-100)) |>
+  summarize(across(everything(), ~mean(.x, na.rm = TRUE))) |> 
+  pivot_longer(-YEAR) |>
+  drop_na() |> 
+  pull(value)
+
+zstar |> 
+  print()
+
+canopy_opennes |> 
+  print()
+```
+
+## Calculate fitness of a given species
+
+```{r}
+
+lho = new(LifeHistoryOptimizer, "config_files/p_amz_obs_mean_traits.ini")
+lho$init()
+lho$printMeta()
+lho$calcFitness()
+```
+
+## Compute fitness landscape
+
+```{r}
+fitness_wd = function(wd, p50, lma, hmat, zp, co, co2, pfile="config_files/p_amz_obs_mean_traits.ini"){
+  lho = new(LifeHistoryOptimizer, pfile)
+  lho$set_i_metFile("input_data/MetData_AmzFACE_Monthly_2000_2015_PlantFATE_new.csv")
+  lho$set_a_metFile("input_data/MetData_AmzFACE_Monthly_2000_2015_PlantFATE_new.csv")
+  lho$init_co2(co2)
+  lho$env$z_star = zp
+  lho$env$canopy_openness = co
+  lho$traits0$wood_density = wd
+  lho$traits0$p50_xylem = p50
+  lho$traits0$hmat = hmat
+  lho$traits0$lma = lma
+
+  lho$init()
+  # lho$printPlant()
+  lho$calcFitness()
+}
+
+wd = seq(400, 900, length.out=20)
+
+dat_wd = wd %>% purrr::map_dbl(.f = fitness_wd, p50=mt_wide$P50, hmat=mt_wide$Hmat, lma=mt_wide$LMA, zp=zstar, co=canopy_opennes, co2=368)
+
+print(
+tibble(wd=wd, fitness=dat_wd) |> 
+  ggplot(aes(x=wd, y=fitness)) +
+  geom_line() +
+  labs(x="Wood Density (g/cm3)", y="Fitness") +
+  theme_classic(base_size = 16)
+)
+
+p50 = seq(-4, -1, length.out=20)
+
+dat_p50 = p50 %>% purrr::map_dbl(.f = fitness_wd, wd=mt_wide$WD, hmat=mt_wide$Hmat, lma=mt_wide$LMA, zp=zstar, co=canopy_opennes, co2=368)
+
+print(
+tibble(p50=p50, fitness=dat_p50) |> 
+  ggplot(aes(x=p50, y=fitness)) +
+  geom_line() +
+  labs(x="Xylem P50 (MPa)", y="Fitness") +
+  theme_classic(base_size = 16)
+)
+
+```
