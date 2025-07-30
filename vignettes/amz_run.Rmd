@@ -126,7 +126,9 @@ Run Plant-FATE with observed mean traits
 ```{r}
 setwd(rprojroot::find_rstudio_root_file())
 
-sim = new(Patch, "config_files/p_amz_obs_mean_traits.ini")
+config_file = "config_files/p_amz_obs_mean_traits_sapwoodresp.ini"
+
+sim = new(Patch, config_file)
 sim$init(1500, 2020)
 sim$simulate()
 
@@ -208,7 +210,7 @@ pred_ts = l1$dat_d %>%
   mutate(name = factor(name, levels = unique(name), labels = labels2[unique(name)]))
 
 pred = pred_ts %>%
-  # filter(YEAR >= 2000 & YEAR <= 2015) %>%
+  filter(YEAR >= 2000 & YEAR <= 2015) %>%
   filter(!is.na(YEAR)) %>%
   group_by(name, type) %>%
   summarize(across(everything(), ~mean(.))) %>%

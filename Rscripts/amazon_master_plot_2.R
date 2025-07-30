@@ -14,7 +14,7 @@ rm(list=ls())
 
 
 input_dir = "~/codes/amazon_pfate/input_data/"
-output_dir = "~/codes/amazon_pfate/pfate_output/"
+output_dir = "~/codes/amazon_pfate/pfate_output_sapwood/"
 
 # # expt_dir = "calib_AmzMIP_HIST_ELE_evol_20ky_7"
 # expt_dir = "calib2_AmzMIP_HIST_ELE_evol_20ky_2"
@@ -32,6 +32,9 @@ output_dir = "~/codes/amazon_pfate/pfate_output/"
 # expt_dir = "ELE_wd_comm"
 # expt_dir = "AMB_ELE_wd_comm"
 expt_dir = "AmzMIP_AMB_ObsMeanTraits"
+
+# Sapwood resp trials
+expt_dir = "AmzMIP_AMB_rs0.4e-3_p50cost0_eWD-1"
 
 # # Some old outputs for bugfix testing
 # output_dir = "~/Documents/PlantFATE_outputs/pspm_output_lhobase5"
