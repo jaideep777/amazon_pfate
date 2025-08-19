@@ -81,3 +81,38 @@ The input data, config files, and outputs reside on `GECO-Workstation-2` in `/da
 
 Final data submitted for the MIP is formatted using the R script `AmzMIP_format_outputs.R`. 
 
+
+# Major update: 19 Aug 2025
+
+## Goals
+
+This update follows after discussion with Colin and Sandy. The first paper from Plant-FATE will target three observations:
+1. Correctly predicting fluxes, structure, and trait diversity in the Amazon FACE site.
+2. Correctly predicting responses to eCO2, based on meta-analysis of global FACE experiments
+3. Correctly predicting the simultaneous wood density / longevity / biomass variation along a nutrient gradient in the Amazon
+
+For 3, the hypothesized reasons are:
+1. Nutrient dynamics somehow impacts wood density and other factors
+2. Nutrient gradient happens to coincide with a soil-integrity gradient, and soil integrity explains the observed pattern.
+
+## Changes in Plant-FATE to address these goals:
+
+1. Up to date implementation of sapwood respiration, now dependent on transpiration and wood density
+2. Implementation of a constant wood-density-independent mortality rate to represent uprooting, etc, in loose soils.
+
+## Simulation setup
+
+### Code used
+
+Code from commit `3f26103` of the Plant-FATE repository is used for these simulations. 
+
+### Configuration files
+
+The config file used for these runs is `config_files/p_amz_obs_mean_traits_sapwoodresp_newmort.ini`. The main changes from the previous version are:
+1. since sapwood respiration formulation has changed, rs has a new meaning and a value of 0.5e-3.
+2. A new parameter minf is added with a value of 0 by default, but +ve values to represent additional uprooting mortality along the soil integrity gradient.
+3. Trait file contains the BA-weighted averages of observed traits, so that evolutionary deviations from observations become quickly apparent and convergence time is less.
+
+
+
+
