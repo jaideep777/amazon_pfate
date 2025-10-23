@@ -44,13 +44,36 @@ library(tidyverse)
 #   MORT  = exprlabel("Biomass", "mortality rate", "(kgC m"^"-2"~"yr"^"-1"*")")
 # )
 
+
+order = c(
+  GPP   = 1,
+  NPP   = 2,
+  GS    = 3,
+  VCMAX = 4,
+  BA    = 5,
+  AGB   = 6,
+  CFR   = 7,
+  LMA   = 8,
+  HMAT  = 9,
+  WD    = 10,
+  P50X  = 11,
+  LAI   = 12,
+  RAU   = 13,
+  Z     = 14,
+  TRANS = 15,
+  MORT  = 16,
+  z2    = 17,
+  z3    = 18,
+  SEEDS  = 19
+)
+
 labels3 = c(
   GPP   = "Gross<br>productivity<br>(kgC m<sup>&minus;2</sup> yr<sup>&minus;1</sup>)",
   NPP   = "Net<br>productivity<br>(kgC m<sup>&minus;2</sup> yr<sup>&minus;1</sup>)",
   GS    = "Stomatal<br>conductance,<br>*g*<sub>c</sub> (mol m<sup>&minus;2</sup> s<sup>&minus;1</sup>)",
   VCMAX = "Photosynthetic<br>capacity,<br>*V*<sub>cmax,25</sub> (&mu;mol m<sup>&minus;2</sup> s<sup>&minus;1</sup>)",
   BA    = "<br>Basal area<br>(m<sup>2</sup> ha<sup>&minus;1</sup>)",
-  AGB   = "Aboveground<br>biomass<br>(kgC ha<sup>&minus;1</sup>)",
+  AGB   = "Aboveground<br>biomass<br>(kgC m<sup>&minus;2</sup>)",
   CFR   = "Fine root<br>biomass<br>(kgC ha<sup>&minus;1</sup>)",
   LMA   = "Leaf mass<br>per area<br>(g m<sup>&minus;2</sup>)",
   HMAT  = "<br>Max. height<br>(m)",
@@ -63,7 +86,12 @@ labels3 = c(
   MORT  = "Biomass<br>mortality rate<br>(kgC m<sup>&minus;2</sup> yr<sup>&minus;1</sup>)",
   z2     = "Canopy layer 2<br>height<br>(m)",
   z3     = "Canopy layer 3<br>height<br>(m)",
-  SEEDS  = "<br>Seed rain<br>(yr<sup>&minus;1</sup>)"
+  SEEDS  = "<br>Seed rain<br>(yr<sup>&minus;1</sup>)",
+  D      = "<br>Diameter<br>(m)",
+  IWUE   = "Intrinsic water<br>use efficiency,<br>*iWUE* (-)",
+  A      = "Light-saturated<br>assimilation rate<br>(&mu;mol m<sup>&minus;2</sup> s<sup>&minus;1</sup>)",
+  MINF   = "Intrinsic<br>mortality rate<br>(yr<sup>&minus;1</sup>)",
+  ZETA   = "Fine-root mass<br>per leaf area<br>(g m<sup>&minus;2</sup>)"
 )
 
 multi_breaks = stringr::str_count(labels3, pattern = "<br>")==2
@@ -89,3 +117,5 @@ col_ele = "#fa9500"
 col_obs = "#0065fa"
 col_amb = "grey40"
 col_amb_dark = "grey10"
+
+data_path = fs::path("C:\\Users\\Jaideep\\OneDrive - IIASA\\RESIST - Documents\\Plant-FATE output_newmort")

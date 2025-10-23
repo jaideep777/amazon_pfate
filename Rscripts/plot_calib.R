@@ -1,18 +1,18 @@
 rm(list=ls())
 library(tidyverse)
 
+source("~/codes/Plant-FATE/R/process_outputs.R")
+source(here::here("Rscripts/definitions.R"))
+
 input_dir = here::here("input_data/")
 
 ## Final runs (manuscript)
-output_dir = here::here("pfate_output_co2scan/")
-expt_dir = "AmzMIP_HIST_614.2_evol_20ky_4"
+output_dir = data_path
+expt_dir = "AmzMortality_AMB_rs0.5e-3m_inf0.002_K_leaf0.5e-16_zeta0.2nspecies2timestep0.0416"
 
-## Final runs (MIP)
-output_dir = "~/Desktop/AmzMIP/pfate_output_mip/"
-expt_dir = "AmzMIP_HIST_AMB_evol_20ky_c2_rs0.04"
-
-source("~/codes/Plant-FATE/R/process_outputs.R")
-source(here::here("Rscripts/definitions.R"))
+# ## Final runs (MIP)
+# output_dir = here::here("pfate_output_mip")
+# expt_dir = "AmzMIP_HIST_AMB_evol_20ky_c2_rs0.04"
 
 traits_obs = read.csv(file = paste0(input_dir, "/Amz_trait_orig.csv"))
 
@@ -42,9 +42,8 @@ calib_ba =
 
 calib = calib_fluxes %>% bind_rows(calib_ba)
 
-
-l1 = pf_read_outputs(output_dir, expt_dir) %>%
-       pf_slice_time(1900, 2100)
+l = pf_read_outputs(input_dir, output_dir, expt_dir)
+l1 = l %>% pf_slice_time(1900, 2100)
 
 pred_ts = l1$dat_d %>%
   select(YEAR, GPP, NPP, GS, VCMAX) %>%
@@ -86,19 +85,20 @@ pred = pred_ts %>%
 calib_yr = 2007
 
 
-
-# cairo_pdf(file=here::here("figures/calib_fluxes_structure.pdf"), width = 7, height = 3.5)
-cairo_pdf(file=here::here("figures/calib_fluxes_structure_mip.pdf"), width = 7, height = 3.5)
-print(
-pred %>%
+p0 <- pred %>%
   ggplot() +
   # geom_col(aes(y=value, x=calib_yr), width = 1.5, fill="grey")+
   scale_y_continuous(expand = expansion(mult=0.4))+
+  geom_rect(aes(ymin = min, ymax = max), xmin = -Inf, xmax = Inf, 
+           fill = col_obs, alpha = 0.2)+
+  # geom_errorbar(aes(x=calib_yr, y=mean, ymin=min, ymax=max), col=col_obs, width = 2.5, linewidth=0.8)+
+  geom_hline(aes(yintercept = mean), col = col_obs, alpha=1)+
+  geom_hline(aes(yintercept = min), col = col_obs, alpha=0.5, linewidth=0.3)+
+  geom_hline(aes(yintercept = max), col = col_obs, alpha=0.5, linewidth=0.3)+
+  # geom_point(aes(y=mean, x=calib_yr), shape=21, col=col_obs, fill = alpha(col_obs, 0.2), size=3, stroke=1.2)+
+  # geom_point(aes(y=value, x=calib_yr, col="Predicted (mean)"))+
   geom_line(data = pred_ts,
-            aes(x=YEAR, y=value), col=col_amb, linewidth=0.3) +
-  geom_point(aes(y=mean, x=calib_yr), pch=1, col=col_obs, size=3, stroke=1.2)+
-  geom_errorbar(aes(x=calib_yr, y=mean, ymin=min, ymax=max), col=col_obs, width = 2.5, linewidth=0.8)+
-  geom_point(aes(y=value, x=calib_yr), col="grey20")+
+            aes(x=YEAR, y=value, col="Predicted (timeseries)"), linewidth=0.3) +
   facet_wrap(~name,
              scales="free_y",
              strip.position = "left",
@@ -108,8 +108,15 @@ pred %>%
   labs(x = "Year", y = "")+
   scale_x_continuous(n.breaks = 3)+
   amz_theme()+
+  scale_color_manual(values = c("Predicted (mean)"="grey20",
+                                "Predicted (timeseries)" = col_amb))+
   theme(plot.margin = margin(t = 5, b=5, r = 10, unit = "pt"))
-)
+
+p0
+
+# cairo_pdf(file=here::here("figures/calib_fluxes_structure.pdf"), width = 7, height = 3.5)
+cairo_pdf(file=here::here("figures/calib_fluxes_structure_mip.pdf"), width = 7, height = 3.5)
+print(p0)
 dev.off()
 
 
@@ -122,7 +129,7 @@ gauss_mix = function(x, means, sds, wts){
   y
 }
 
-l = pf_read_outputs(output_dir, expt_dir)
+# l = pf_read_outputs(input_dir, output_dir, expt_dir)
 
 dist_amb1 = l$dist %>%
   mutate(period = "MID") %>%
@@ -157,21 +164,6 @@ dist_obs = data.frame(
          0.5597156879584093)/10
 )
 
-p1 = dist_amb1 %>%
-  ggplot() +
-  geom_line(aes(x=size, y=density, group=period, col=period), linewidth=0.8)+
-  scale_y_log10(limits=c(1e-3, 1000))+
-  xlim(c(0.01, 1.2))+
-  geom_point(data=dist_obs, aes(x=xobs, y=yobs), shape = 21, col=col_obs, fill=alpha(col_obs, 0.2), size=2)+
-  geom_label(data = tibble(label="a"),
-             aes(x=-Inf, y=Inf, label=label), inherit.aes = F, hjust=0, vjust=1, label.size = 0, size = 4.5) +
-  xlab("Diameter<br>(m)")+
-  ylab("Density<br>(stems cm<sup>&minus;1</sup> ha<sup>&minus;1</sup>)")+
-  scale_colour_manual(values = c(AMB=col_amb, ELE=col_ele))+
-  theme_bw()+
-  amz_theme()
-
-p1
 
 year_sq = 2000
 
@@ -181,124 +173,189 @@ df_trait = l$dat2 %>%
   mutate(period = ifelse(YEAR > 19980 & YEAR < 20000, yes="ELE", no=period)) %>%
   filter(period %in% c("AMB", "ELE")) %>%
   select(YEAR, PID, BA, period) %>%
+  mutate(BA = BA*1e4) %>%  # convert m2 m-2 ---> m2 ha-1
   left_join(l$traits, by = c("PID"="SPP", "YEAR"="YEAR")) %>%
   filter(!grepl("probe", PID)) %>%
   mutate(YEAR = as.integer(YEAR)) %>%
   group_by(PID, period) %>%
   summarize(across(everything(), ~mean(.)))
 
-# %>%
-#   mutate(yeardiff = abs(YEAR-year_sq)) %>%
-#   filter(yeardiff == min(yeardiff))
-#
-# p2 = tibble(x = seq(0,300, length.out=1000),
-#        y_obs = traits_obs %>%
-#          select(Leaf.LMA..g.m2., Total.BasalArea_2017.cm2.) %>%
-#          drop_na %>%
-#          mutate(means =Leaf.LMA..g.m2.,
-#                 wts=Total.BasalArea_2017.cm2./sum(Total.BasalArea_2017.cm2.)) %>%
-#          with(gauss_mix(x=x, means, wts, sds=180*0.1)),
-#        y_pred_amb = df_trait %>%
-#          filter(period == "AMB") %>%
-#          with(gauss_mix(x=x, means =LMA*1000, wts=BA/sum(BA), sds=180*0.14)),
-#        y_pred_ele = df_trait %>%
-#          filter(period == "ELE") %>%
-#          with(gauss_mix(x=x, means =LMA*1000, wts=BA/sum(BA), sds=180*0.14))
-#        ) %>%
-#   ggplot(aes(x=x))+
-#   geom_line(aes(y=y_obs), col="grey50")+
-#   geom_ribbon(aes(ymax=y_obs, ymin=0), fill="grey", alpha=0.5)+
-#   geom_line(aes(y=y_pred_amb))+
-#   geom_line(aes(y=y_pred_ele), col="orange2")+
-#   geom_label(data = tibble(label="b"),
-#              aes(x=-Inf, y=Inf, label=label), inherit.aes = F, hjust=0, vjust=1, label.size = 0, size = 4.5) +
-#   theme_bw()+
-#   amz_theme()+
-#   labs(y="Density", x=labels2["LMA"])
-#
 
-p3 = tibble(x = seq(200,1200, length.out=1000),
-       y_obs = traits_obs %>%
-         select(meanWoodDensity..g.cm3., Total.BasalArea_2017.cm2.) %>%
-         drop_na %>%
-         mutate(means =meanWoodDensity..g.cm3.*1000,
-                wts=Total.BasalArea_2017.cm2./sum(Total.BasalArea_2017.cm2.)) %>%
-         with(gauss_mix(x=x, means, wts, sds=800*0.1)),
-       y_pred_amb = df_trait %>%
-         filter(period == "AMB") %>%
-         with(gauss_mix(x=x, means =WD, wts=BA/sum(BA), sds=800*0.14)),
-       y_pred_ele = df_trait %>%
-         filter(period == "ELE") %>%
-         with(gauss_mix(x=x, means =WD, wts=BA/sum(BA), sds=800*0.14))
+df_td = dplyr::bind_rows(
+  dist_amb1 %>% 
+    ungroup() %>% 
+    pivot_wider(names_from=period, values_from=density) %>% 
+    rename(x=size, y_amb=AMB) %>% 
+    # rename(x=size, y_amb=AMB, y_ele=ELE) %>% 
+    select(-size_class) %>% 
+    full_join(dist_obs %>% 
+                 rename(x=xobs, y_obs=yobs)) %>% 
+    mutate(name = "D") %>% 
+    mutate(id = 1:n()),
+  
+  tibble(x = seq(200,1200, length.out=1000),
+                 y_obs = traits_obs %>%
+                   select(meanWoodDensity..g.cm3., BA) %>%
+                   drop_na %>%
+                   mutate(means =meanWoodDensity..g.cm3.*1000,
+                          wts=BA/sum(BA)*sum(traits_obs$BA, na.rm=T)) %>%
+                   with(gauss_mix(x=x, means, wts, sds=800*0.1)),
+                 y_amb = df_trait %>%
+                   filter(period == "AMB") %>%
+                   with(gauss_mix(x=x, means =WD, wts=BA, sds=800*0.14))
+                #  y_ele = df_trait %>%
+                #    filter(period == "ELE") %>%
+                #    with(gauss_mix(x=x, means =WD, wts=BA, sds=800*0.14))
+  ) %>% 
+    mutate(id=1:n()) %>% 
+    mutate(name = "WD"),
+  
+  tibble(x = seq(0,50, length.out=1000),
+         y_obs = traits_obs %>%
+           select(Height_Max.m., BA) %>%
+           drop_na %>%
+           mutate(means =Height_Max.m.,
+                  wts=BA/sum(BA)*sum(traits_obs$BA, na.rm=T)) %>%
+           with(gauss_mix(x=x, means, wts, sds=25*0.1)),
+         y_amb = df_trait %>%
+           filter(period == "AMB") %>%
+           with(gauss_mix(x=x, means =HMAT, wts=BA, sds=25*0.14))
+        #  y_ele = df_trait %>%
+        #    filter(period == "ELE") %>%
+        #    with(gauss_mix(x=x, means =HMAT, wts=BA, sds=25*0.14))
   ) %>%
+    mutate(id=1:n()) %>% 
+    mutate(name = "HMAT"),
+  
+  tibble(x = seq(-6,-0.1, length.out=1000),
+         y_obs = traits_obs %>%
+           select(P50..Mpa., BA) %>%
+           drop_na %>%
+           mutate(means = P50..Mpa.,
+                  wts=BA/sum(BA)*sum(traits_obs$BA, na.rm=T)) %>%
+           with(gauss_mix(x=x, means, wts, sds=2*0.31)),
+         y_amb = df_trait %>%
+           filter(period == "AMB") %>%
+           with(gauss_mix(x=x, means =P50X, wts=BA, sds=2*0.31))
+        #  y_ele = df_trait %>%
+        #    filter(period == "ELE") %>%
+        #    with(gauss_mix(x=x, means =P50X, wts=BA, sds=2*0.31))
+  ) %>%
+    mutate(id=1:n()) %>% 
+    mutate(name = "P50X"),
+)   
+
+p_td = list()
+for (i in 1:3){
+  label = letters[i+9]
+  p_td[[i]] = 
+    df_td %>% 
+      filter(name == c("WD", "HMAT", "P50X")[i]) %>% 
+      mutate(name = factor(name, levels = unique(name), labels = labels2[unique(name)])) %>% 
+      ggplot(aes(x=x))+
+      geom_line(aes(y=y_obs, col="Site observations"), linewidth=0.4)+
+      geom_ribbon(aes(ymax=y_obs, ymin=0), fill=col_obs, linewidth = 0.4, alpha=0.2)+
+      geom_line(aes(y=y_amb, col="Predicted (distribution)"), linewidth=0.8)+
+      # geom_line(aes(y=y_ele), col=col_ele, linewidth=0.8)+
+      amz_theme()+
+      theme(axis.title.y = element_text(margin = margin(t = 0, r = 6, b = 0, l = 0)))+
+      geom_label(data = . %>% count(name),
+                 aes(x=-Inf, y=Inf), label=label, inherit.aes = F, hjust=0, vjust=1, label.size = 0, size = 4.5) +
+      facet_wrap(~name, scales="free",
+                 strip.position = "bottom",
+                 ncol=3)+
+      scale_x_continuous(n.breaks = 3)+
+      scale_y_continuous(n.breaks = 4)+
+      scale_color_manual(values=c(
+        "Predicted (distribution)" = col_amb,
+        "Site observations" = col_obs
+      ))+
+      labs(y="Basal-area density<br>(m<sup>2</sup> trait-unit<sup>&minus;1</sup> ha<sup>&minus;1</sup>)", x=NA)
+}
+
+p_sd = df_td %>% 
+  filter(name == "D") %>% 
+  mutate(name = factor(name, levels = unique(name), labels = labels2[unique(name)])) %>% 
   ggplot(aes(x=x))+
+  geom_point(data=dist_obs, aes(x=xobs, y=yobs), shape = 21, col=col_obs, fill=alpha(col_obs, 0.2), size=2)+
   geom_line(aes(y=y_obs), col=col_obs)+
   geom_ribbon(aes(ymax=y_obs, ymin=0), fill=col_obs, alpha=0.2)+
-  geom_line(aes(y=y_pred_amb), col=col_amb, linewidth=0.8)+
-  geom_line(aes(y=y_pred_ele), col=col_ele, linewidth=0.8)+
-  geom_label(data = tibble(label="b"),
-             aes(x=-Inf, y=Inf, label=label), inherit.aes = F, hjust=0, vjust=1, label.size = 0, size = 4.5) +
+  geom_line(data=. %>% filter(!is.na(y_amb)), aes(y=y_amb), col=col_amb, linewidth=0.8)+
+  # geom_line(data=. %>% filter(!is.na(y_ele)), aes(y=y_ele), col=col_ele, linewidth=0.8)+
   amz_theme()+
-  labs(y="Density", x=labels2["WD"])
+  facet_wrap(~name, scales="free",
+             strip.position = "bottom",
+             ncol=3, axes = "margins")+
+  scale_y_log10(limits=c(1e-3, 1000))+
+  scale_x_continuous(n.breaks = 3, limits = c(0.01, 1.2))+
+  geom_label(data = . %>% count(name) %>% mutate(label = letters[row_number()+8]),
+             aes(x=-Inf, y=Inf, label=label), inherit.aes = F, hjust=0, vjust=1, label.size = 0, size = 4.5) +
+  labs(y="Density<br>(stems cm<sup>&minus;1</sup> ha<sup>&minus;1</sup>)", x=NA)
 
-p4 = tibble(x = seq(0,50, length.out=1000),
-       y_obs = traits_obs %>%
-         select(Height_Max.m., Total.BasalArea_2017.cm2.) %>%
-         drop_na %>%
-         mutate(means =Height_Max.m.,
-                wts=Total.BasalArea_2017.cm2./sum(Total.BasalArea_2017.cm2.)) %>%
-         with(gauss_mix(x=x, means, wts, sds=25*0.1)),
-       y_pred_amb = df_trait %>%
-         filter(period == "AMB") %>%
-         with(gauss_mix(x=x, means =HMAT, wts=BA/sum(BA), sds=25*0.14)),
-       y_pred_ele = df_trait %>%
-         filter(period == "ELE") %>%
-         with(gauss_mix(x=x, means =HMAT, wts=BA/sum(BA), sds=25*0.14))
-  ) %>%
-  ggplot(aes(x=x))+
-  geom_line(aes(y=y_obs), col=col_obs)+
-  geom_ribbon(aes(ymax=y_obs, ymin=0), fill=col_obs, alpha=0.2)+
-  geom_line(aes(y=y_pred_amb), col=col_amb, linewidth=0.8)+
-  geom_line(aes(y=y_pred_ele), col=col_ele, linewidth=0.8)+
-  geom_label(data = tibble(label="c"),
-             aes(x=-Inf, y=Inf, label=label), inherit.aes = F, hjust=0, vjust=1, label.size = 0, size = 4.5) +
-  theme_bw()+
-  amz_theme()+
-  labs(y="Density", x=labels2["HMAT"])
-
-p5 = tibble(x = seq(-6,-0.1, length.out=1000),
-       y_obs = traits_obs %>%
-         select(P50..Mpa., Total.BasalArea_2017.cm2.) %>%
-         drop_na %>%
-         mutate(means = P50..Mpa.,
-                wts=Total.BasalArea_2017.cm2./sum(Total.BasalArea_2017.cm2.)) %>%
-         with(gauss_mix(x=x, means, wts, sds=2*0.31)),
-       y_pred_amb = df_trait %>%
-         filter(period == "AMB") %>%
-         with(gauss_mix(x=x, means =P50X, wts=BA/sum(BA), sds=2*0.31)),
-       y_pred_ele = df_trait %>%
-         filter(period == "ELE") %>%
-         with(gauss_mix(x=x, means =P50X, wts=BA/sum(BA), sds=2*0.31))
-  ) %>%
-  ggplot(aes(x=x))+
-  geom_line(aes(y=y_obs), col=col_obs)+
-  geom_ribbon(aes(ymax=y_obs, ymin=0), fill=col_obs, alpha=0.2)+
-  geom_line(aes(y=y_pred_amb), col=col_amb, linewidth=0.8)+
-  geom_line(aes(y=y_pred_ele), col=col_ele, linewidth=0.8)+
-  geom_label(data = tibble(label="d"),
-             aes(x=-Inf, y=Inf, label=label), inherit.aes = F, hjust=0, vjust=1, label.size = 0, size = 4.5) +
-  theme_bw()+
-  amz_theme()+
-  labs(y="Density", x=labels2["P50X"])
 
 
 library(patchwork)
 
-cairo_pdf(file=here::here("figures/calib_traits_sizedist.pdf"), width = 6, height = 5)
+cairo_pdf(file=here::here("figures/calib_all_v3.1.pdf"), width = 8.5, height = 6.5)
 print(
-(p1 + p3) / (p4 + p5) + plot_layout(guides="collect")
+(p0 + theme(panel.spacing.y = unit(0.5, "cm"))) / (p_sd + p_td[[1]]+ plot_spacer() + p_td[[2]] + p_td[[3]] + plot_layout(nrow=1, widths=c(0.98,0.98,-0.03, 1,1))) + 
+  plot_layout(guides="collect", heights =c(2,1)) & 
+  theme(legend.position = 'top',
+        axis.title.y = element_text(size=9)) &
+  labs(color=NULL)
 )
 dev.off()
+
+
+### SI Figures for trait and size-dist change
+
+# cairo_pdf(file=here::here("figures/trait_shift_si.pdf"), width = 7, height = 3.5)
+# print(
+# df_td %>% 
+#   filter(name != "D") %>% 
+#   mutate(name = factor(name, levels = unique(name), labels = labels2[unique(name)])) %>% 
+#   ggplot(aes(x=x))+
+#   geom_line(aes(y=y_amb, col="AMB (CO2 = 414 ppm)"), linewidth=0.8)+
+#   geom_line(aes(y=y_ele, col="ELE (CO2 = 614 ppm)") , linewidth=0.8)+
+#   amz_theme()+
+#   theme(axis.title.y = element_text(margin = margin(t = 0, r = 6, b = 0, l = 0)))+
+#   geom_label(data = . %>% count(name) %>% mutate(label = letters[row_number()]),
+#              aes(x=-Inf, y=Inf, label=label), inherit.aes = F, hjust=0, vjust=1, label.size = 0, size = 4.5) +
+#   facet_wrap(~name, scales="free",
+#              strip.position = "bottom",
+#              ncol=3)+
+#   scale_x_continuous(n.breaks = 3)+
+#   scale_y_continuous(n.breaks = 4)+
+#   scale_color_manual(values=c(
+#     "AMB (CO2 = 414 ppm)" = col_amb,
+#     "ELE (CO2 = 614 ppm)" = col_ele
+#   ))+
+#   theme(legend.position = "top")+
+#   labs(y="Basal-area density<br>(m<sup>2</sup> trait-unit<sup>&minus;1</sup> ha<sup>&minus;1</sup>)", x=NA, color="")
+# )
+# dev.off()
+
+
+# cairo_pdf(file=here::here("figures/size_shift_si.pdf"), width = 5, height = 3.5)
+# print(
+# df_td %>% 
+#   filter(name == "D") %>% 
+#   mutate(name = factor(name, levels = unique(name), labels = labels2[unique(name)])) %>% 
+#   ggplot(aes(x=x))+
+#   geom_line(data=. %>% filter(!is.na(y_amb)), aes(y=y_amb, col="AMB (CO2 = 414 ppm)"), linewidth=0.8)+
+#   geom_line(data=. %>% filter(!is.na(y_ele)), aes(y=y_ele, col="ELE (CO2 = 614 ppm)"), linewidth=0.8)+
+#   amz_theme()+
+#   scale_y_log10(limits=c(1e-3, 1000))+
+#   scale_x_continuous(n.breaks = 3, limits = c(0.01, 1.2))+
+#   geom_label(data = . %>% count(name) %>% mutate(label = letters[row_number()]),
+#              aes(x=-Inf, y=Inf, label=label), inherit.aes = F, hjust=0, vjust=1, label.size = 0, size = 4.5) +
+#   scale_color_manual(values=c(
+#     "AMB (CO2 = 414 ppm)" = col_amb,
+#     "ELE (CO2 = 614 ppm)" = col_ele
+#   ))+
+#   labs(y="Density<br>(stems cm<sup>&minus;1</sup> ha<sup>&minus;1</sup>)", x=labels2["D"], color="")
+# )
+# dev.off()
 
 
 ##### Sample for PPTs #### 
@@ -339,27 +396,18 @@ q2 = dist_amb1 %>%
   theme(plot.title = ggtext::element_markdown(lineheight=1.2, colour = "grey40", hjust=0.5))+
   ggtitle("B. Size distribution")
 
-q3 = tibble(x = seq(200,1200, length.out=1000),
-            y_obs = traits_obs %>% 
-              select(meanWoodDensity..g.cm3., Total.BasalArea_2017.cm2.) %>% 
-              drop_na %>% 
-              mutate(means =meanWoodDensity..g.cm3.*1000, 
-                     wts=Total.BasalArea_2017.cm2./sum(Total.BasalArea_2017.cm2.)) %>% 
-              with(gauss_mix(x=x, means, wts, sds=800*0.1)),
-            y_pred_amb = df_trait %>% 
-              filter(period == "AMB") %>% 
-              with(gauss_mix(x=x, means =WD, wts=BA/sum(BA), sds=800*0.14))
-  ) %>% 
+q3 = df_td %>% 
+  filter(name == "WD") %>% 
   ggplot(aes(x=x))+
   geom_line(aes(y=y_obs, col="Observed"))+
   geom_line(aes(y=y_obs), col="seagreen")+
   geom_ribbon(aes(ymax=y_obs, ymin=0), fill=alpha("seagreen2", 0.5), alpha=0.2)+
-  geom_line(aes(y=y_pred_amb, col="Predicted"), linewidth=0.8)+
+  geom_line(aes(y=y_amb, col="Predicted"), linewidth=0.8)+
   # geom_label(data = tibble(label="c"),
   #            aes(x=-Inf, y=Inf, label=label), inherit.aes = F, hjust=0, vjust=1, label.size = 0, size = 4.5) +
   amz_theme()+
   scale_x_continuous(n.breaks = 3)+
-  labs(y="Density", x=labels2["WD"], col="")+
+  labs(y="Basal-area density<br>(m<sup>2</sup> trait-unit<sup>&minus;1</sup> ha<sup>&minus;1</sup>)", x=labels2["WD"], col="")+
   theme(plot.title = ggtext::element_markdown(lineheight=1.2, colour = "grey40", hjust=0.5))+
   ggtitle("C. Trait strategy")+
   scale_color_manual(values = c("Observed"=alpha("seagreen2", 0.5), 
@@ -368,6 +416,7 @@ q3 = tibble(x = seq(200,1200, length.out=1000),
 
 library(patchwork)
 
+cairo_pdf(here::here("figures/sample_prediction.pdf"), height = 3.5, width=8)
 q1+q2+q3 + plot_layout(guides="collect") & theme(legend.position="bottom")
-
+dev.off()
 
