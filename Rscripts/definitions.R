@@ -70,6 +70,8 @@ order = c(
 labels3 = c(
   GPP   = "Gross<br>productivity<br>(kgC m<sup>&minus;2</sup> yr<sup>&minus;1</sup>)",
   NPP   = "Net<br>productivity<br>(kgC m<sup>&minus;2</sup> yr<sup>&minus;1</sup>)",
+  ANPP  = "Aboveground<br>productivity<br>(kgC m<sup>&minus;2</sup> yr<sup>&minus;1</sup>)",
+  BNPP  = "Belowground<br>productivity<br>(kgC m<sup>&minus;2</sup> yr<sup>&minus;1</sup>)",
   GS    = "Stomatal<br>conductance,<br>*g*<sub>c</sub> (mol m<sup>&minus;2</sup> s<sup>&minus;1</sup>)",
   VCMAX = "Photosynthetic<br>capacity,<br>*V*<sub>cmax,25</sub> (&mu;mol m<sup>&minus;2</sup> s<sup>&minus;1</sup>)",
   BA    = "<br>Basal area<br>(m<sup>2</sup> ha<sup>&minus;1</sup>)",
@@ -91,13 +93,18 @@ labels3 = c(
   IWUE   = "Intrinsic water<br>use efficiency,<br>*iWUE* (-)",
   A      = "Light-saturated<br>assimilation rate<br>(&mu;mol m<sup>&minus;2</sup> s<sup>&minus;1</sup>)",
   MINF   = "Intrinsic<br>mortality rate<br>(yr<sup>&minus;1</sup>)",
-  ZETA   = "Fine-root mass<br>per leaf area<br>(g m<sup>&minus;2</sup>)"
+  ZETA   = "Fine-root mass<br>per leaf area<br>(g m<sup>&minus;2</sup>)",
+  PHOS   = "Phosphorus<br>availability<br>(mg kg<sup>&minus;1</sup>)",
+  TURN   = "Stand-level<br>turnover<br>(% yr<sup>&minus;1</sup>)"
 )
 
 multi_breaks = stringr::str_count(labels3, pattern = "<br>")==2
 labels2 = labels3
 labels2[multi_breaks] = stringr::str_replace(labels3[multi_breaks], "<br>", " ")
 names(labels2) = names(labels3)
+
+labels1 = stringr::str_replace_all(labels3, "<br>", " ")
+names(labels1) = names(labels3)
 
 unitstart = labels3 |> stringr::str_locate_all(pattern = "<br>") |> lapply(function(x){x[2,"start"]}) |> unlist() 
 labels_nounit = substr(labels3, 1, unitstart-1) |> stringr::str_replace_all(",","")
@@ -118,4 +125,5 @@ col_obs = "#0065fa"
 col_amb = "grey40"
 col_amb_dark = "grey10"
 
+## Latest data is stored on RESIST sharepoint
 data_path = fs::path("C:\\Users\\Jaideep\\OneDrive - IIASA\\RESIST - Documents\\Plant-FATE output_newmort")

@@ -4,6 +4,7 @@ library(patchwork)
 
 source("~/codes/Plant-FATE/R/process_outputs.R")
 source(here::here("Rscripts/definitions.R"))
+source(here::here("Rscripts/calc_asat_beta.R"))
 
 input_dir = here::here("input_data/")
 
@@ -83,7 +84,7 @@ p_flux = dat_flux %>%
                ncol=3)+
     scale_colour_viridis_d(direction = -1, end=0.95)+
     scale_x_continuous(n.breaks=3)+
-    labs(y="", x="", colour="Canopy\nlevel")+
+    labs(y="", x="", colour="Canopy/nlevel")+
     amz_theme()
 
 
@@ -91,7 +92,7 @@ p_traits = dat_traits %>%
   pivot_longer(-YEAR) %>%
   mutate(YEAR=as.integer(YEAR)) %>% 
   mutate(name = factor(name, levels = unique(name), labels = labels2[unique(name)])) |>
-  filter(YEAR %in% seq(-20000,20000, by=10)) %>% 
+  filter(YEAR %in% seq(1900,2100, by=10)) %>% 
   ggplot(aes(x=YEAR, y=value))+
   geom_line(alpha=0.3)+
   geom_smooth(method = "loess", span=0.15, se=F, col="black", linewidth=0.5)+
@@ -105,7 +106,7 @@ p_traits = dat_traits %>%
   labs(y="", x="Year")+
   amz_theme()
 
-cairo_pdf(here::here("figures/flux_change_ELE.pdf"), width=7, height=6.4)            
+cairo_pdf(here::here("figures/flux_change_ELE.pdf"), width=7, height=6.6)            
 print(
   p_flux/p_traits + plot_layout(heights=c(3,1))
 )
@@ -138,57 +139,56 @@ beta_dat = l$dat_d %>%
       pivot_longer(-YEAR)
   ) %>% 
   mutate(hist = cut(YEAR, 
-                    breaks = c(-Inf, 1970, 2000,   2070,    2100,     19900,     Inf), 
-                    labels = c("prehist",  "hist", "mid", "ele_st", "midele", "ele_lt")
+                    breaks = c(-Inf,  1970, 2000,   2020,    2030,   2070,      2100,     19900,     Inf), 
+                    labels = c("prehist",  "hist", "y2000s", "y2020s" , "mid", "ele_eoc", "midele", "ele_lt")
                     )
          ) %>%
   group_by(hist, name) %>% 
   summarize(value = mean(value)) %>% 
   ungroup() %>% 
-  bind_rows(
-    data.frame(hist=c("hist", "ele_st"),
-               name = c("A","A"),
-               value = c(9.193998, 13.432466))
-  ) %>% 
   pivot_wider(names_from = hist) %>% 
-  mutate(pc_change_st = (ele_st-hist)/hist*100) %>% 
+  mutate(pc_change_eoc = (ele_eoc-hist)/hist*100) %>% 
         #  pc_change_lt = (ele_lt-hist)/hist*100) %>% 
-  mutate(beta_st = log(ele_st/hist)/log(614.4/368.9))
+  mutate(beta_eoc = log(ele_eoc/hist)/log(614.4/368.9)) %>% 
+  mutate(beta_2020s = log(y2020s/hist)/log(614.4/368.9)) |>
+  mutate(beta_2000s = log(y2000s/hist)/log((614.4+414.4)/2/368.9)) |>
+  dplyr::bind_rows(
+    data.frame(
+      name = "A", 
+      beta_eoc = beta_a_df |> filter(type=="inst_ls") |> pull(beta),
+      beta_2000s = beta_a_df |> filter(type=="inst_ls") |> pull(beta),
+      beta_2020s = beta_a_df |> filter(type=="inst_ls") |> pull(beta)
+    )
+  )
         #  beta_lt = log(ele_lt/hist)/log(614.4/368.9)) 
 
 beta_dat %>% 
   write_csv(here::here("summarized_outputs/flux_change.csv"))
 
-# Betas reported in https://nph.onlinelibrary.wiley.com/doi/10.1111/nph.16866
-# VCMAX, -0.38, -0.48, -0.28
-beta_obs =
-  read.csv(text = gsub(pattern = " ", replacement="",
-     "name, mean, min, max, type, source
-      A,  0.75, 0.5,  1.0, fluxes, stocker 
-      GPP,  0.49, 0.17,  0.82, fluxes, stocker 
-      VCMAX,  -0.13, -0.27,  0.0, fluxes, stocker 
-      AGB, 0.40, 0.34, 0.47, structure, stocker
-      IWUE, 1.1, 0.65, 1.1, fluxes, walker"
-     ),
-     header=T, sep=",", as.is = F) %>%
-  as_tibble()
-
+# Digitized from Stocker et al: https://nph.onlinelibrary.wiley.com/doi/full/10.1111/nph.20178
+# iWUE from walker et al: https://nph.onlinelibrary.wiley.com/doi/10.1111/nph.16866
+beta_obs = read.csv(here::here("MESI_betas.csv")) |> 
+      pivot_wider(names_from=metric, values_from=beta)
 
 p1 = beta_dat %>% 
   ungroup() %>% 
-  select(name, beta_st) %>% 
-  filter(name %in% c("GPP", "VCMAX", "NPP", "IWUE", "AGB", "MORT", "A")) %>% 
-  arrange(match(name, c("AGB", "MORT", "IWUE", "NPP", "VCMAX", "GPP", "A"))) %>% 
+  select(name, beta_eoc) %>% 
+  pivot_wider(names_from=name, values_from=beta_eoc) |> 
+  mutate(ANPP=NPP, BNPP=NPP, obs=1) |> 
+  pivot_longer(-obs, values_to = "beta_eoc") |> 
+  select(-obs) |> 
+  filter(name %in% c("GPP", "VCMAX", "ANPP", "BNPP", "RAU", "LAI", "IWUE", "AGB", "MORT", "A")) %>% 
+  arrange(match(name, c("AGB", "LAI", "MORT", "ANPP", "BNPP", "IWUE", "RAU", "VCMAX", "GPP", "A"))) %>% 
   left_join(beta_obs) %>% 
   # Create facet labels
   mutate(name = factor(name, levels = unique(name), labels = labels2[unique(name)])) %>% 
   ggplot()+
-  geom_col(aes(x=beta_st, y=name, fill="Predicted"), alpha=0.5)+
+  geom_col(aes(x=beta_eoc, y=name, fill="Predicted"), alpha=0.5)+
   geom_errorbar(aes(y=name, x=mean, xmin=min, xmax=max, col="Observed"), width = 0.2, linewidth=0.8)+
   amz_theme()+
   theme(axis.text = ggtext::element_markdown(lineheight=1.2))+
   labs(y="", x="Response ratio")+
-  scale_x_continuous(limits = c(-0.6,1.2), breaks=c(-0.5, 0, 0.5, 1))+
+  scale_x_continuous(limits = c(-0.6,1.6), breaks=c(-0.5, 0, 0.5, 1))+
   geom_label(data = . %>% slice(1),
              aes(x=-Inf, y=Inf, label="a"), inherit.aes = F, hjust=0, vjust=1, label.size = 0, size = 4.5) +
   scale_fill_manual(values = c("Predicted"=col_amb))+
@@ -197,9 +197,73 @@ p1 = beta_dat %>%
 
 p1
 
-cairo_pdf(here::here("figures/flux_change_beta.pdf"), width=5, height=4)
+cairo_pdf(here::here("figures/flux_change_beta_eoc.pdf"), width=5, height=5)
 p1 + plot_layout(guides="collect")&theme(legend.position = "top")
 dev.off()
 
 
+p2 = beta_dat %>% 
+  ungroup() %>% 
+  select(name, beta_2000s) %>% 
+  pivot_wider(names_from=name, values_from=beta_2000s) |> 
+  mutate(ANPP=NPP, BNPP=NPP, obs=1) |> 
+  pivot_longer(-obs, values_to = "beta_2000s") |> 
+  select(-obs) |> 
+  filter(name %in% c("GPP", "VCMAX", "ANPP", "BNPP", "RAU", "LAI", "IWUE", "AGB", "MORT", "A")) %>% 
+  arrange(match(name, c("AGB", "LAI", "MORT", "ANPP", "BNPP", "IWUE", "RAU", "VCMAX", "GPP", "A"))) %>% 
+  left_join(beta_obs) %>% 
+  # Create facet labels
+  mutate(name = factor(name, levels = unique(name), labels = labels2[unique(name)])) %>% 
+  ggplot()+
+  geom_col(aes(x=beta_2000s, y=name, fill="Predicted"), alpha=0.5)+
+  geom_errorbar(aes(y=name, x=mean, xmin=min, xmax=max, col="Observed"), width = 0.2, linewidth=0.8)+
+  amz_theme()+
+  theme(axis.text = ggtext::element_markdown(lineheight=1.2))+
+  labs(y="", x="Response ratio")+
+  scale_x_continuous(limits = c(-0.6,1.6), breaks=c(-0.5, 0, 0.5, 1))+
+  geom_label(data = . %>% slice(1),
+             aes(x=-Inf, y=Inf, label="a"), inherit.aes = F, hjust=0, vjust=1, label.size = 0, size = 4.5) +
+  scale_fill_manual(values = c("Predicted"=col_amb))+
+  scale_color_manual(values = c("Observed"=col_obs))+
+  labs(color="", fill="")
 
+p2
+
+cairo_pdf(here::here("figures/flux_change_beta_2000s.pdf"), width=5, height=5)
+p2 + plot_layout(guides="collect")&theme(legend.position = "top")
+dev.off()
+
+
+# df_coh <- readr::read_csv("c:/Users/Jaideep/OneDrive - IIASA/RESIST - Documents/Plant-FATE output_newmort/AmzMortality_AMB_rs0.5e-3m_inf0.01_K_leaf0.5e-16_zeta0.2nspecies2/cohort_props.csv")
+
+
+p3 = beta_dat %>% 
+  ungroup() %>% 
+  select(name, beta_2020s) %>% 
+  pivot_wider(names_from=name, values_from=beta_2020s) |> 
+  mutate(ANPP=NPP, BNPP=NPP, obs=1) |> 
+  pivot_longer(-obs, values_to = "beta_2020s") |> 
+  select(-obs) |> 
+  filter(name %in% c("GPP", "VCMAX", "ANPP", "BNPP", "RAU", "LAI", "IWUE", "AGB", "MORT", "A")) %>% 
+  arrange(match(name, c("AGB", "LAI", "MORT", "ANPP", "BNPP", "IWUE", "RAU", "VCMAX", "GPP", "A"))) %>% 
+  left_join(beta_obs) %>% 
+  # Create facet labels
+  mutate(name = factor(name, levels = unique(name), labels = labels2[unique(name)])) %>% 
+  ggplot()+
+  geom_col(aes(x=beta_2020s, y=name, fill="Predicted"), alpha=0.5)+
+  geom_errorbar(aes(y=name, x=mean, xmin=min, xmax=max, col="Observed"), width = 0.2, linewidth=0.8)+
+  amz_theme()+
+  theme(axis.text = ggtext::element_markdown(lineheight=1.2))+
+  labs(y="", x="Response ratio")+
+  scale_x_continuous(limits = c(-0.6,1.6), breaks=c(-0.5, 0, 0.5, 1))+
+  geom_label(data = . %>% slice(1),
+             aes(x=-Inf, y=Inf, label="a"), inherit.aes = F, hjust=0, vjust=1, label.size = 0, size = 4.5) +
+  scale_fill_manual(values = c("Predicted"=col_amb))+
+  scale_color_manual(values = c("Observed"=col_obs))+
+  labs(color="", fill="")
+
+p3
+
+cairo_pdf(here::here("figures/flux_change_beta_2020s.pdf"), width=5, height=5)
+p3 + plot_layout(guides="collect")&theme(legend.position = "top")
+dev.off()

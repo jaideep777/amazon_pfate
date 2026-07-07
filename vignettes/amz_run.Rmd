@@ -126,7 +126,7 @@ Run Plant-FATE with observed mean traits
 ```{r}
 setwd(rprojroot::find_rstudio_root_file())
 
-config_file = "config_files/p_amz_obs_mean_traits_sapwoodresp.ini"
+config_file = "config_files/p_amz_obs_mean_traits_sapwoodresp_newmort.ini"
 
 sim = new(Patch, config_file)
 sim$init(1500, 2020)
@@ -142,8 +142,8 @@ sim$close()
 
 ```{r}
 input_dir = "input_data"
-output_dir = "pfate_output"
-prefix = "AmzMIP_AMB_ObsMeanTraits"
+output_dir = "pfate_output_sapwood_newmort"
+prefix = "AmzMIP_AMB_rs0.6e-3_K0.4_p50cost0_eWD-1"
 solver = "ebt"
 dir = paste0("",output_dir,"/",prefix,"_",solver)
 
