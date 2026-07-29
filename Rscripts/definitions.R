@@ -110,6 +110,9 @@ unitstart = labels3 |> stringr::str_locate_all(pattern = "<br>") |> lapply(funct
 labels_nounit = substr(labels3, 1, unitstart-1) |> stringr::str_replace_all(",","")
 names(labels_nounit) = names(labels3)
 
+labels_nounit_oneline = labels_nounit |> stringr::str_replace_all("<br>"," ") |> trimws()
+names(labels_nounit_oneline) = names(labels3)
+
 amz_theme = function(){
   theme_bw()+
     theme(strip.placement = "outside",

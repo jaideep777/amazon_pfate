@@ -212,27 +212,31 @@ p2 = beta_dat %>%
   pivot_longer(-obs, values_to = "beta_2000s") |> 
   select(-obs) |> 
   filter(name %in% c("GPP", "VCMAX", "ANPP", "BNPP", "RAU", "LAI", "IWUE", "AGB", "MORT", "A")) %>% 
-  arrange(match(name, c("AGB", "LAI", "MORT", "ANPP", "BNPP", "IWUE", "RAU", "VCMAX", "GPP", "A"))) %>% 
+  arrange(match(name, c("AGB", "MORT", "ANPP", "BNPP", "RAU", "IWUE", "VCMAX", "LAI", "GPP", "A"))) %>% 
   left_join(beta_obs) %>% 
   # Create facet labels
-  mutate(name = factor(name, levels = unique(name), labels = labels2[unique(name)])) %>% 
+  mutate(name = factor(name, levels = unique(name), labels = labels_nounit_oneline[unique(name)])) %>% 
   ggplot()+
-  geom_col(aes(x=beta_2000s, y=name, fill="Predicted"), alpha=0.5)+
-  geom_errorbar(aes(y=name, x=mean, xmin=min, xmax=max, col="Observed"), width = 0.2, linewidth=0.8)+
+  # geom_col(aes(x=beta_2000s, y=name, fill="Predicted"), alpha=0.5)+
+  geom_errorbar(aes(y=name, x=mean, xmin=min, xmax=max, col="Observed"), width = 0.2, linewidth=0.8, alpha=0.7)+
+  geom_point(aes(x=beta_2000s, y=name, col="Predicted"), alpha=1, size=3)+
+  geom_vline(xintercept = 0, col="grey60")+
   amz_theme()+
   theme(axis.text = ggtext::element_markdown(lineheight=1.2))+
-  labs(y="", x="Response ratio")+
+  labs(y="", x="Log-response ratio")+
   scale_x_continuous(limits = c(-0.6,1.6), breaks=c(-0.5, 0, 0.5, 1))+
-  geom_label(data = . %>% slice(1),
-             aes(x=-Inf, y=Inf, label="a"), inherit.aes = F, hjust=0, vjust=1, label.size = 0, size = 4.5) +
-  scale_fill_manual(values = c("Predicted"=col_amb))+
-  scale_color_manual(values = c("Observed"=col_obs))+
+  # geom_label(data = . %>% slice(1),
+  #            aes(x=-Inf, y=Inf, label="a"), inherit.aes = F, hjust=0, vjust=1, label.size = 0, size = 4.5) +
+  scale_fill_manual(values = c("Predicted"="orange2"))+
+  scale_color_manual(values = c("Observed"=col_obs, "Predicted"="orange2"))+
   labs(color="", fill="")
 
 p2
 
-cairo_pdf(here::here("figures/flux_change_beta_2000s.pdf"), width=5, height=5)
+cairo_pdf(here::here("figures/flux_change_beta_2000s_orange_point.pdf"), width=6, height=4)
+print(
 p2 + plot_layout(guides="collect")&theme(legend.position = "top")
+)
 dev.off()
 
 
