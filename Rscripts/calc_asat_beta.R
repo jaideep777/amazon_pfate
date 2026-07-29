@@ -27,8 +27,11 @@ options = list(gs_method = "GS_IGF",
                ftemp_br_method = "FB_atkin15",
                scale_alpha = F)
 
+aco2 = 368.9
+eco2 = 591.6
+
 ## Calculate Acclimated Vcmax/Jmax at baseline and elevated CO2
-dat_acc_amz = tibble(co2 = c(368.9, 614.2)) |> 
+dat_acc_amz = tibble(co2 = c(aco2, eco2)) |> 
     mutate(dat = purrr::map(
         .x=co2, 
         .f = ~rphydro_analytical(tc, tc, ppfd_max, netrad, vpd, .x, pa, fapar, kphio, psi_soil, rdark, vwind, par_plant, par_cost, options)
@@ -37,7 +40,7 @@ dat_acc_amz = tibble(co2 = c(368.9, 614.2)) |>
     mutate(type = "acc")
   
 ## Calculated instantaneous quantities with daytime (12 hr) mean light. This is what results in daily GPP
-dat_inst_amz = tibble(co2 =c(368.9, 614.2)) |> 
+dat_inst_amz = tibble(co2 =c(aco2, eco2)) |> 
     left_join(dat_acc_amz |> select(co2, vcmax25, jmax25)) |>
     mutate(dat = purrr::pmap(
         .l=list(co2, vcmax25, jmax25), 
@@ -49,7 +52,7 @@ dat_inst_amz = tibble(co2 =c(368.9, 614.2)) |>
     mutate(type = "inst_daily")
 
 ## Calculated instantaneous photosynthesis with saturated light. This will give beta for Asat
-dat_inst_amz_ls = tibble(co2 =c(368.9, 614.2)) |> 
+dat_inst_amz_ls = tibble(co2 =c(aco2, eco2)) |> 
     left_join(dat_acc_amz |> select(co2, vcmax25, jmax25)) |>
     mutate(dat = purrr::pmap(
         .l=list(co2, vcmax25, jmax25), 
@@ -69,7 +72,7 @@ beta_a_df <- df |>
     select(co2, a, type) |> 
     pivot_longer(a) |>
     pivot_wider(names_from = co2, values_from=value) |> 
-    mutate(beta = log(`614.2`/`368.9`)/log(614.2/368.9)) |>
-    mutate(pc_change = (`614.2`/`368.9`-1)*100)
+    mutate(beta = log(`591.6`/`368.9`)/log(591.6/368.9)) |>
+    mutate(pc_change = (`591.6`/`368.9`-1)*100)
 
 

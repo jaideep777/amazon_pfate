@@ -148,10 +148,12 @@ beta_dat = l$dat_d %>%
   ungroup() %>% 
   pivot_wider(names_from = hist) %>% 
   mutate(pc_change_eoc = (ele_eoc-hist)/hist*100) %>% 
+  mutate(pc_change_2020s = (y2020s-hist)/hist*100) %>% 
+  mutate(pc_change_2000s = (y2000s-hist)/hist*100) %>% 
         #  pc_change_lt = (ele_lt-hist)/hist*100) %>% 
   mutate(beta_eoc = log(ele_eoc/hist)/log(614.4/368.9)) %>% 
   mutate(beta_2020s = log(y2020s/hist)/log(614.4/368.9)) |>
-  mutate(beta_2000s = log(y2000s/hist)/log((614.4+414.4)/2/368.9)) |>
+  mutate(beta_2000s = log(y2000s/hist)/log((614.4+568.9)/2/368.9)) |>
   dplyr::bind_rows(
     data.frame(
       name = "A", 
