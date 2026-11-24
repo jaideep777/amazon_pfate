@@ -185,6 +185,6 @@ print(
 pO/p1/p2 + 
   plot_layout(guides = "collect") &
   theme(legend.position = "top", legend.title = element_blank()) &
-  plot_annotation(caption = "E \u2192 W", theme = theme(plot.caption = element_text(hjust = 0.5, size = 12)))
+  plot_annotation(caption = "Plains \u2192 Mountain slopes", theme = theme(plot.caption = element_text(hjust = 0.5, size = 12)))
 )
 dev.off()

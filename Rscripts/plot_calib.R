@@ -300,7 +300,8 @@ cairo_pdf(file=here::here("figures/calib_all_v3.1.pdf"), width = 8.5, height = 6
 print(
 (p0 + theme(panel.spacing.y = unit(0.5, "cm"))) / (p_sd + p_td[[1]]+ plot_spacer() + p_td[[2]] + p_td[[3]] + plot_layout(nrow=1, widths=c(0.98,0.98,-0.03, 1,1))) + 
   plot_layout(guides="collect", heights =c(2,1)) & 
-  theme(legend.position = 'top',
+  theme(legend.position = 'bottom',
+        legend.box.margin = margin(t = -20, unit = "pt"), # Nudge the legend a but upwards
         axis.title.y = element_text(size=9)) &
   labs(color=NULL)
 )
