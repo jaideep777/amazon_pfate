@@ -122,7 +122,7 @@ beta_dat = l$dat_d %>%
   mutate(GPP = GPP*365.2425,
          NPP = NPP*365.2425,
          MORT = MORT*365.2425) %>% 
-  mutate(IWUE = NPP/GS) %>% 
+  mutate(IWUE = GPP/GS) %>% 
   pivot_longer(-YEAR) %>% 
   bind_rows(
     l$dat3 %>% 
