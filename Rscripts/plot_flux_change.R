@@ -122,7 +122,7 @@ beta_dat = l$dat_d %>%
   mutate(GPP = GPP*365.2425,
          NPP = NPP*365.2425,
          MORT = MORT*365.2425) %>% 
-  mutate(IWUE = GPP/GS) %>% 
+  mutate(IWUE = NPP/GS) %>%
   pivot_longer(-YEAR) %>% 
   bind_rows(
     l$dat3 %>% 
@@ -172,7 +172,7 @@ beta_dat %>%
   write_csv(here::here("summarized_outputs/flux_change.csv"))
 
 # Digitized from Stocker et al: https://nph.onlinelibrary.wiley.com/doi/full/10.1111/nph.20178
-# iWUE from walker et al: https://nph.onlinelibrary.wiley.com/doi/10.1111/nph.16866
+# iWUE from walker et al: https://nph.onlinelibrary.wiley.com/doi/10.1111/nph.16866 (considering FACE sites only, for which WUE = BP/T, equivalent to NPP/gc)
 beta_obs = read.csv(here::here("MESI_betas.csv")) |> 
       pivot_wider(names_from=metric, values_from=beta)
 
